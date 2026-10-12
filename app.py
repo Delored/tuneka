@@ -147,14 +147,34 @@ def info_for(url: str) -> dict:
         raise RuntimeError((result.stderr or result.stdout).strip()[-1200:] or "Не вдалося прочитати відео.")
     data = json.loads(result.stdout)
     chapters = data.get("chapters") or []
+    title = data.get("title") or "YouTube відео"
+    duration = data.get("duration")
+    if not isinstance(duration, (int, float)) or duration <= 0:
+        duration = None
     if not chapters:
-        raise RuntimeError("У цьому відео не знайдено розділів із часовими мітками.")
+        chapters = [{"title": title, "start_time": 0, "end_time": duration}]
+    normalized_chapters = []
+    for index, chapter in enumerate(chapters):
+        start = chapter.get("start_time") or 0
+        end = chapter.get("end_time")
+        if end is None or end <= start:
+            if index + 1 < len(chapters):
+                next_start = chapters[index + 1].get("start_time")
+                end = next_start if next_start is not None and next_start > start else None
+            elif duration is not None and duration > start:
+                end = duration
+            else:
+                end = None
+        normalized_chapters.append({
+            "index": index,
+            "title": chapter.get("title") or f"Трек {index + 1}",
+            "start": start,
+            "end": end,
+        })
     return {
-        "title": data.get("title", "YouTube відео"), "thumbnail": data.get("thumbnail"),
-        "duration": data.get("duration"),
-        "chapters": [{"index": i, "title": c.get("title") or f"Трек {i + 1}",
-                      "start": c.get("start_time", 0), "end": c.get("end_time", 0)}
-                     for i, c in enumerate(chapters)],
+        "title": title, "thumbnail": data.get("thumbnail"),
+        "duration": duration,
+        "chapters": normalized_chapters,
     }
 
 
@@ -252,12 +272,17 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
             filename = f"{order:02d} - {safe_filename(chapter['title'])}.mp3"
             target = jobdir / filename
             progress(f"Нарізаю треки… {order}/{len(selected)}", 90 + int(10 * (order - 1) / max(1, len(selected))))
+            segment_duration = None
+            if chapter["end"] is not None:
+                segment_duration = max(0.01, chapter["end"] - chapter["start"])
             # Apply seek and duration to the audio input. Putting -t on the
             # output also counts the one-frame cover stream and can truncate
             # the MP3 to only a fraction of a second.
             command = [str(FFMPEG_PATH), "-hide_banner", "-loglevel", "error", "-y", "-ss",
-                       timestamp(chapter["start"]), "-t", timestamp(chapter["end"] - chapter["start"]),
-                       "-i", str(source)]
+                       timestamp(chapter["start"])]
+            if segment_duration is not None:
+                command += ["-t", timestamp(segment_duration)]
+            command += ["-i", str(source)]
             if cover_path is not None:
                 command += ["-i", str(cover_path)]
             command += ["-map", "0:a:0",
@@ -276,10 +301,11 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
                 # cannot decode or embed the thumbnail format.
                 cover_warning = True
                 command = [str(FFMPEG_PATH), "-hide_banner", "-loglevel", "error", "-y", "-ss",
-                           timestamp(chapter["start"]), "-i", str(source), "-t",
-                           timestamp(chapter["end"] - chapter["start"]), "-vn", "-c:a", "libmp3lame",
-                           "-q:a", "2", "-metadata", f"title={chapter['title']}", "-metadata",
-                           f"album={video['title']}", str(target)]
+                           timestamp(chapter["start"]), "-i", str(source)]
+                if segment_duration is not None:
+                    command += ["-t", timestamp(segment_duration)]
+                command += ["-vn", "-c:a", "libmp3lame", "-q:a", "2", "-metadata",
+                            f"title={chapter['title']}", "-metadata", f"album={video['title']}", str(target)]
                 result = run(command, timeout=1800)
             if result.returncode:
                 raise RuntimeError((result.stderr or "Помилка ffmpeg").strip()[-1200:])
@@ -886,7 +912,14 @@ class TrackSplitApp:
             self.tree.insert("", "end", iid=str(chapter["index"]), values=(chapter["title"], f"{start // 60:02}:{start % 60:02}"))
         self.tree.selection_set(self.tree.get_children())
         self.video_label.configure(text=video["title"])
-        self.chapter_count.configure(text=f"{len(video['chapters'])} РОЗДІЛІВ")
+        chapter_total = len(video["chapters"])
+        if chapter_total % 10 == 1 and chapter_total % 100 != 11:
+            chapter_word = "РОЗДІЛ"
+        elif 2 <= chapter_total % 10 <= 4 and not 12 <= chapter_total % 100 <= 14:
+            chapter_word = "РОЗДІЛИ"
+        else:
+            chapter_word = "РОЗДІЛІВ"
+        self.chapter_count.configure(text=f"{chapter_total} {chapter_word}")
         self.select_button.set_state("normal")
         self.select_button.set_text("Зняти вибір")
         self.download_button.set_state("normal")
