@@ -38,6 +38,16 @@ Tuneka downloads `yt-dlp` from its [official GitHub releases](https://github.com
 
 Supported platforms: Windows x64 and ARM64, macOS x64 and Apple Silicon, and Linux x64 and ARM64.
 
+## Build a Debian package
+
+An experimental Debian package for amd64 can be built on Debian or Ubuntu with:
+
+```sh
+sh packaging/debian/build-deb.sh 0.1.0
+```
+
+The `.deb` is written to `dist/`. It uses the system Python and Tkinter packages; Tuneka continues to download its own `yt-dlp` and FFmpeg binaries on first launch and stores them in the user's data directory. See [`packaging/README.md`](packaging/README.md) for installation notes.
+
 ## Downloads and settings
 
 By default, files are saved under a `downloads/` folder beside the application. Music tracks and individual videos are placed in a subfolder named after the video; playlist downloads go into a folder named after the playlist. The destination folder can be changed in the app, and the selection is remembered between launches.

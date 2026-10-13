@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
+export TUNEKA_DATA_DIR="$data_home/tuneka"
+export TUNEKA_DOWNLOADS="${TUNEKA_DOWNLOADS:-$HOME/Music}"
+mkdir -p "$TUNEKA_DATA_DIR" "$TUNEKA_DOWNLOADS"
+exec /usr/bin/python3 /usr/lib/tuneka/app.py "$@"
