@@ -1,4 +1,4 @@
-# Tracksplit: desktop UI
+# Tuneka: desktop UI
 
 ## Орієнтири
 

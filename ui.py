@@ -1,4 +1,4 @@
-"""Small native widgets used by Tracksplit's desktop interface."""
+"""Small native widgets used by Tuneka's desktop interface."""
 import math
 import tkinter as tk
 from tkinter import ttk
