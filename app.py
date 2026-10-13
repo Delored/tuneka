@@ -1191,16 +1191,14 @@ class TunekaApp:
         self._compact_pack = {}
         self.compact = False
         self.root.title("Tuneka")
-        if sys.platform.startswith("linux"):
-            try:
-                self.root.tk.call("wm", "class", self.root._w, "Tuneka")
-            except tk.TclError:
-                pass
-        app_icon = ROOT / "assets" / "tuneka.png"
+        icon_name = "tuneka-64.png" if sys.platform.startswith("linux") else "tuneka.png"
+        app_icon = ROOT / "assets" / icon_name
         if app_icon.is_file():
             try:
                 self.app_icon = tk.PhotoImage(file=str(app_icon))
                 self.root.iconphoto(True, self.app_icon)
+                self.root.iconphoto(False, self.app_icon)
+                self.root.iconphoto(False, self.app_icon)
             except tk.TclError:
                 self.app_icon = None
         self.root.geometry(f"{min(1220, self.root.winfo_screenwidth()-60)}x{min(840, self.root.winfo_screenheight()-100)}")
@@ -2931,7 +2929,7 @@ class TunekaApp:
 
 
 def main():
-    root = tk.Tk()
+    root = tk.Tk(className="Tuneka" if sys.platform.startswith("linux") else "Tk")
     TunekaApp(root)
     root.mainloop()
 

@@ -33,6 +33,7 @@ mkdir -p "$stage/usr/lib/tuneka" \
 
 install -m 0644 "$repo_root/app.py" "$repo_root/ui.py" "$repo_root/i18n.py" "$stage/usr/lib/tuneka/"
 install -m 0644 "$repo_root/assets/tuneka.png" "$stage/usr/lib/tuneka/assets/"
+install -m 0644 "$repo_root/assets/tuneka-64.png" "$stage/usr/lib/tuneka/assets/"
 install -m 0755 "$repo_root/packaging/debian/tuneka.in" "$stage/usr/bin/tuneka"
 install -m 0644 "$repo_root/packaging/debian/io.github.Delored.Tuneka.desktop" "$stage/usr/share/applications/"
 install -m 0644 "$repo_root/packaging/debian/io.github.Delored.Tuneka.metainfo.xml" "$stage/usr/share/metainfo/"
