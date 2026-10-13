@@ -5,6 +5,7 @@ import tempfile
 import tkinter as tk
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -160,6 +161,29 @@ class DesktopLayoutTests(unittest.TestCase):
         self.assertEqual(a.playlist_resolution.get(), '720p')
         a.playlist_format._choose('WebM')
         self.assertEqual(a.playlist_format.get(), 'WebM')
+
+    def test_quality_and_format_choices_are_saved_and_shared_between_modes(self):
+        a = self.app
+        saved = []
+        a._save_settings = lambda: saved.append(True)
+
+        a.video_resolution.set('1440p')
+        a._remember_video_preference(SimpleNamespace(widget=a.video_resolution))
+        self.assertEqual(a.default_video_resolution, '1440p')
+        self.assertEqual(a.playlist_resolution.get(), '1440p')
+        self.assertEqual(a.options_resolution.get(), '1440p')
+
+        a.playlist_format.set('WebM')
+        a._remember_video_preference(SimpleNamespace(widget=a.playlist_format))
+        self.assertEqual(a.default_video_format, 'webm')
+        self.assertEqual(a.video_format.get(), 'WebM')
+        self.assertEqual(a.options_format.get(), 'WebM')
+
+        a.options_playlist_music_format.set('FLAC')
+        a._remember_video_preference(SimpleNamespace(widget=a.options_playlist_music_format))
+        self.assertEqual(a.default_playlist_music_format, 'flac')
+        self.assertEqual(a.playlist_music_format.get(), 'FLAC')
+        self.assertEqual(len(saved), 3)
 
 
 if __name__ == '__main__':

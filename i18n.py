@@ -57,14 +57,15 @@ UK_TO_EN = {
         "Choose the quality and format. Watch your favorites whenever you like.",
     "Встав посилання на відео з розділами — отримай окремі MP3. Якщо розділів немає, відео стане одним треком.":
         "Paste a video link with chapters to get separate MP3 files. Without chapters, the video becomes one track.",
-    "Вибери відео з плейлиста й завантаж їх як окремі MP3 або відеофайли.":
-        "Choose videos from a playlist and download them as separate MP3 or video files.",
+    "Вибери відео з плейлиста й завантаж їх як музику або відеофайли.":
+        "Choose videos from a playlist and download them as music or video files.",
     "Збережи окреме відео у вибраній якості та стандартному контейнері.":
         "Save a video at the selected quality and in a standard format.",
     "Задай теки та формати, які Tuneka використовуватиме за замовчуванням.":
         "Set the folders and formats Tuneka will use by default.",
     "Треки": "Tracks", "MP3 · з обкладинкою": "MP3 · with cover art",
     "ФОРМАТ ЗАВАНТАЖЕННЯ": "DOWNLOAD FORMAT",
+    "Музика": "Music", "МУЗИЧНИЙ ФОРМАТ": "MUSIC FORMAT",
     "MP3 · 1 файл на відео": "MP3 · 1 file per video",
     "MP3 · один файл на відео": "MP3 · one file per video",
     "ЯКІСТЬ": "QUALITY", "ФОРМАТ": "FORMAT",

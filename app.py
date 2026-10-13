@@ -53,6 +53,12 @@ IMAGEIO_REPO_API = "https://api.github.com/repos/imageio/imageio-binaries"
 IMAGEIO_DOWNLOAD_HOSTS = {"raw.githubusercontent.com"}
 YOUTUBE_THUMBNAIL_HOSTS = {"i.ytimg.com", "img.youtube.com"}
 MAX_COVER_BYTES = 5 * 1024 * 1024
+AUDIO_FORMATS = {
+    "mp3": {"extension": "mp3", "codec": ["-c:a", "libmp3lame", "-q:a", "2"], "cover": True},
+    "m4a": {"extension": "m4a", "codec": ["-c:a", "aac", "-b:a", "192k"], "cover": True},
+    "flac": {"extension": "flac", "codec": ["-c:a", "flac"], "cover": True},
+    "wav": {"extension": "wav", "codec": ["-c:a", "pcm_s16le"], "cover": False},
+}
 
 THEMES = {
     "olive": {
@@ -493,6 +499,7 @@ def info_for(url: str, control: DownloadController | None = None) -> dict:
         raise RuntimeError((result.stderr or result.stdout).strip()[-1200:] or "Не вдалося прочитати відео.")
     data = json.loads(result.stdout)
     chapters = data.get("chapters") or []
+    has_chapters = bool(chapters)
     title = data.get("title") or "YouTube відео"
     duration = data.get("duration")
     if not isinstance(duration, (int, float)) or duration <= 0:
@@ -520,6 +527,7 @@ def info_for(url: str, control: DownloadController | None = None) -> dict:
     return {
         "title": title, "thumbnail": data.get("thumbnail"),
         "duration": duration,
+        "has_chapters": has_chapters,
         "chapters": normalized_chapters,
     }
 
@@ -726,19 +734,32 @@ def download_cover(url: str | None, target: Path) -> Path | None:
 
 def split_video(url: str, video: dict, selected: list[int], download_parent: Path, progress,
                 jobdir_override: Path | None = None, filename_prefix: str = "",
-                control: DownloadController | None = None, number_tracks: bool = True) -> tuple[Path, list[Path], bool]:
-    jobdir = jobdir_override or download_parent / safe_foldername(video["title"])
+                control: DownloadController | None = None, number_tracks: bool = True,
+                audio_format: str = "mp3") -> tuple[Path, list[Path], bool]:
+    audio_format = audio_format.lower()
+    audio_output = AUDIO_FORMATS.get(audio_format)
+    if audio_output is None:
+        raise ValueError("Підтримуються формати аудіо MP3, M4A, FLAC та WAV.")
+    if jobdir_override is not None:
+        jobdir = jobdir_override
+    elif video.get("has_chapters") is False:
+        jobdir = download_parent
+    else:
+        jobdir = download_parent / safe_foldername(video["title"])
     jobdir.mkdir(parents=True, exist_ok=True)
     # Keep the downloaded source out of the user's output folder and always
     # remove it, including when yt-dlp or ffmpeg fails partway through.
     with tempfile.TemporaryDirectory(prefix=".tuneka-", dir=jobdir) as temporary_dir:
         cover_warning = False
         cover_path = Path(temporary_dir) / "video-cover"
-        progress("Завантажую обкладинку відео…", 0)
-        cover_path = download_cover(video.get("thumbnail"), cover_path)
+        if audio_output["cover"]:
+            progress("Завантажую обкладинку відео…", 0)
+            cover_path = download_cover(video.get("thumbnail"), cover_path)
+        else:
+            cover_path = None
         if control:
             control.check_cancelled()
-        if cover_path is None:
+        if cover_path is None and audio_output["cover"]:
             cover_warning = True
         source_template = str(Path(temporary_dir) / "source.%(ext)s")
         command = [str(YTDLP_PATH), "--no-warnings", "--no-progress", "--no-colors", "--no-playlist", "-f", "bestaudio/best",
@@ -796,7 +817,7 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
                 control.check_cancelled()
             chapter = by_index[index]
             chapter_prefix = f"{order:02d} - " if number_tracks else ""
-            filename = f"{filename_prefix}{chapter_prefix}{safe_filename(chapter['title'])}.mp3"
+            filename = f"{filename_prefix}{chapter_prefix}{safe_filename(chapter['title'])}.{audio_output['extension']}"
             target = jobdir / filename
             progress(f"Нарізаю треки… {order}/{len(selected)}", 90 + int(10 * (order - 1) / max(1, len(selected))))
             segment_duration = None
@@ -812,12 +833,13 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
             command += ["-i", str(source)]
             if cover_path is not None:
                 command += ["-i", str(cover_path)]
-            command += ["-map", "0:a:0",
-                        "-c:a", "libmp3lame", "-q:a", "2", "-metadata", f"title={chapter['title']}",
-                        "-metadata", f"album={video['title']}"]
+            command += ["-map", "0:a:0", *audio_output["codec"],
+                        "-metadata", f"title={chapter['title']}", "-metadata", f"album={video['title']}"]
             if cover_path is not None:
-                command += ["-map", "1:v:0", "-c:v", "mjpeg", "-id3v2_version", "3",
-                            "-metadata:s:v:0", "title=Album cover", "-metadata:s:v:0", "comment=Cover (front)",
+                command += ["-map", "1:v:0", "-c:v", "mjpeg"]
+                if audio_format == "mp3":
+                    command += ["-id3v2_version", "3"]
+                command += ["-metadata:s:v:0", "title=Album cover", "-metadata:s:v:0", "comment=Cover (front)",
                             "-disposition:v:0", "attached_pic"]
             else:
                 command.append("-vn")
@@ -835,8 +857,8 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
                            timestamp(chapter["start"]), "-i", str(source)]
                 if segment_duration is not None:
                     command += ["-t", timestamp(segment_duration)]
-                command += ["-vn", "-c:a", "libmp3lame", "-q:a", "2", "-metadata",
-                            f"title={chapter['title']}", "-metadata", f"album={video['title']}", str(target)]
+                command += ["-vn", *audio_output["codec"], "-metadata", f"title={chapter['title']}",
+                            "-metadata", f"album={video['title']}", str(target)]
                 try:
                     result = run_controlled(command, 1800, control) if control else run(command, timeout=1800)
                 except DownloadCancelled:
@@ -1127,7 +1149,12 @@ class TunekaApp:
         preferences = self._load_preferences()
         self.default_video_format = preferences.get("default_video_format", "mp4")
         self.default_video_resolution = preferences.get("default_video_resolution", "best")
-        self.default_playlist_output = preferences.get("default_playlist_output", "mp3")
+        self.default_playlist_output = preferences.get("default_playlist_output", "music")
+        if self.default_playlist_output == "mp3":
+            self.default_playlist_output = "music"
+        if self.default_playlist_output not in ("music", "video"):
+            self.default_playlist_output = "music"
+        self.default_playlist_music_format = preferences.get("default_playlist_music_format", "mp3")
         self.language = preferences.get("language", "uk")
         if self.language not in ("uk", "en"):
             self.language = "uk"
@@ -1497,17 +1524,25 @@ class TunekaApp:
         tk.Label(line, text="ФОРМАТ ЗАВАНТАЖЕННЯ", bg="#1b211c", fg="#9aa797",
                  font=(FONT, 8, "bold")).pack(side="left", padx=(0, 12))
         self.playlist_output = tk.StringVar(value=self.default_playlist_output)
-        self.playlist_mp3_button = RoundedButton(line, text="MP3 · 1 файл на відео",
-                                                 command=lambda: self._set_playlist_output("mp3", persist=False),
+        self.playlist_music_button = RoundedButton(line, text="Музика",
+                                                   command=lambda: self._set_playlist_output("music", persist=False),
                                                  variant="primary", height=36, bg="#1b211c")
-        self.playlist_mp3_button.pack(side="left", padx=(0, 7))
+        self.playlist_music_button.pack(side="left", padx=(0, 7))
+        self.playlist_music_format_label = tk.Label(line, text="ФОРМАТ", bg="#1b211c", fg="#9aa797",
+                                                    font=(FONT, 8, "bold"))
+        self.playlist_music_format_label.pack(side="left", padx=(2, 8))
+        self.playlist_music_format = Choice(line, state="readonly", width=8,
+                                            values=tuple(value.upper() for value in AUDIO_FORMATS))
+        self.playlist_music_format.pack(side="left", padx=(0, 10))
+        self.playlist_music_format.set(self.default_playlist_music_format.upper())
+        self.playlist_music_format.bind("<<ComboboxSelected>>", self._remember_video_preference)
         self.playlist_video_button = RoundedButton(line, text="Відео",
                                                    command=lambda: self._set_playlist_output("video", persist=False),
                                                    variant="secondary", height=36, bg="#1b211c")
         self.playlist_video_button.pack(side="left")
         self.playlist_video_options = tk.Frame(self.playlist_controls_card.content, bg="#1b211c")
         self.playlist_video_options.pack(fill="x", pady=(12, 0))
-        tk.Label(self.playlist_video_options, text="ЯКІСТЬ", bg="#1b211c", fg="#9aa797",
+        tk.Label(self.playlist_video_options, text="РОЗДІЛЬНІСТЬ", bg="#1b211c", fg="#9aa797",
                  font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
         self.playlist_resolution = Choice(self.playlist_video_options, state="readonly", width=20,
                                                 values=("Автоматично", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
@@ -1519,6 +1554,8 @@ class TunekaApp:
         self.playlist_format.pack(side="left")
         self.playlist_resolution.set("Автоматично" if self.default_video_resolution == "best" else self.default_video_resolution)
         self.playlist_format.set(self._video_format_label(self.default_video_format))
+        self.playlist_resolution.bind("<<ComboboxSelected>>", self._remember_video_preference)
+        self.playlist_format.bind("<<ComboboxSelected>>", self._remember_video_preference)
         self._set_playlist_output(self.playlist_output.get(), persist=False)
 
         playlist_head = tk.Frame(page, bg="#111511")
@@ -1576,12 +1613,51 @@ class TunekaApp:
                                   values=("Автоматично", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
         resolution.pack(side="left", padx=(0, 20))
         resolution.set("Автоматично" if self.default_video_resolution == "best" else self.default_video_resolution)
+        resolution.bind("<<ComboboxSelected>>", self._remember_video_preference)
         tk.Label(row, text="ФОРМАТ", bg="#1b211c", fg="#9aa797",
                  font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
         video_format = Choice(row, state="readonly", width=12, values=("MP4", "MKV", "WebM"))
         video_format.pack(side="left")
         video_format.set(self._video_format_label(self.default_video_format))
+        video_format.bind("<<ComboboxSelected>>", self._remember_video_preference)
         return resolution, video_format
+
+    def _remember_video_preference(self, event):
+        """Persist a changed video or playlist music choice and sync its peers."""
+        widget = event.widget
+        resolution_widgets = tuple(getattr(self, name, None) for name in (
+            "video_resolution", "playlist_resolution", "options_resolution",
+        ))
+        video_format_widgets = tuple(getattr(self, name, None) for name in (
+            "video_format", "playlist_format", "options_format",
+        ))
+        music_format_widgets = tuple(getattr(self, name, None) for name in (
+            "playlist_music_format", "options_playlist_music_format",
+        ))
+
+        if widget in resolution_widgets:
+            selected = widget.get()
+            self.default_video_resolution = "best" if selected == "Автоматично" else selected
+            display_value = "Автоматично" if self.default_video_resolution == "best" else self.default_video_resolution
+            for peer in resolution_widgets:
+                if peer is not None and peer is not widget:
+                    peer.set(display_value)
+        elif widget in video_format_widgets:
+            self.default_video_format = widget.get().lower()
+            display_value = self._video_format_label(self.default_video_format)
+            for peer in video_format_widgets:
+                if peer is not None and peer is not widget:
+                    peer.set(display_value)
+        elif widget in music_format_widgets:
+            self.default_playlist_music_format = widget.get().lower()
+            display_value = self.default_playlist_music_format.upper()
+            for peer in music_format_widgets:
+                if peer is not None and peer is not widget:
+                    peer.set(display_value)
+        else:
+            return
+
+        self._save_settings()
 
     @staticmethod
     def _video_format_label(value):
@@ -1612,21 +1688,30 @@ class TunekaApp:
         tk.Label(preferences, text="ФОРМАТ ПЛЕЙЛИСТІВ", bg="#1b211c", fg="#9aa797",
                  font=(FONT, 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 8))
         self.options_playlist_output = Choice(preferences, width=25,
-                                              values=("MP3 · один файл на відео", "Відео"))
+                                              values=("Музика", "Відео"))
         self.options_playlist_output.grid(row=1, column=0, sticky="w")
-        self.options_playlist_output.set("Відео" if self.default_playlist_output == "video" else "MP3 · один файл на відео")
+        self.options_playlist_output.set("Відео" if self.default_playlist_output == "video" else "Музика")
+
+        tk.Label(preferences, text="МУЗИЧНИЙ ФОРМАТ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).grid(row=0, column=1, sticky="w", pady=(0, 8))
+        self.options_playlist_music_format = Choice(
+            preferences, width=12, values=tuple(value.upper() for value in AUDIO_FORMATS),
+        )
+        self.options_playlist_music_format.grid(row=1, column=1, sticky="w")
+        self.options_playlist_music_format.set(self.default_playlist_music_format.upper())
+        self.options_playlist_music_format.bind("<<ComboboxSelected>>", self._remember_video_preference)
 
         tk.Label(preferences, text="КОЛІРНА ТЕМА", bg="#1b211c", fg="#9aa797",
-                 font=(FONT, 8, "bold")).grid(row=0, column=1, sticky="w", pady=(0, 8))
+                 font=(FONT, 8, "bold")).grid(row=0, column=2, sticky="w", pady=(0, 8))
         self.options_theme = Choice(preferences, width=18, values=tuple(t["label"] for t in THEMES.values()))
-        self.options_theme.grid(row=1, column=1, sticky="w")
+        self.options_theme.grid(row=1, column=2, sticky="w")
         self.options_theme.set(THEMES[self.theme_name]["label"])
         self.options_theme.bind("<<ComboboxSelected>>", self._change_theme_from_selection)
 
         tk.Label(preferences, text="МОВА ІНТЕРФЕЙСУ", bg="#1b211c", fg="#9aa797",
-                 font=(FONT, 8, "bold")).grid(row=0, column=2, sticky="w", pady=(0, 8))
+                 font=(FONT, 8, "bold")).grid(row=2, column=0, sticky="w", pady=(14, 8))
         self.options_language = Choice(preferences, width=18, values=("uk", "en"))
-        self.options_language.grid(row=1, column=2, sticky="w")
+        self.options_language.grid(row=3, column=0, sticky="w")
         self.options_language.set(self.language)
         self.options_language.bind("<<ComboboxSelected>>", self._change_language_from_selection)
         self.options_save_button = RoundedButton(self.action_host, text="Зберегти опції", command=self._save_preferences_from_ui,
@@ -1748,15 +1833,21 @@ class TunekaApp:
         self.video_download_button.set_state("disabled")
 
     def _set_playlist_output(self, output, persist=True):
-        if output not in ("mp3", "video"):
-            output = "mp3"
+        if output == "mp3":
+            output = "music"
+        if output not in ("music", "video"):
+            output = "music"
         self.playlist_output.set(output)
-        self.playlist_mp3_button.set_variant("primary" if output == "mp3" else "secondary")
+        self.playlist_music_button.set_variant("primary" if output == "music" else "secondary")
         self.playlist_video_button.set_variant("primary" if output == "video" else "secondary")
         if output == "video":
+            self.playlist_music_format.pack_forget()
+            self.playlist_music_format_label.pack_forget()
             self.playlist_video_options.pack(fill="x", pady=(12, 0))
         else:
             self.playlist_video_options.pack_forget()
+            self.playlist_music_format_label.pack(side="left", padx=(2, 8), after=self.playlist_music_button)
+            self.playlist_music_format.pack(side="left", padx=(0, 10), after=self.playlist_music_format_label)
         self.playlist_controls_card.after_idle(self.playlist_controls_card._fit_height)
         if persist:
             self.default_playlist_output = output
@@ -1844,6 +1935,7 @@ class TunekaApp:
             return
         entries = [self.playlist["entries"][index] for index in selected_ids]
         output_kind = self.playlist_output.get()
+        music_format = self.playlist_music_format.get().lower() if output_kind == "music" else "mp3"
         resolution = self.playlist_resolution.get() if output_kind == "video" else "Автоматично"
         video_format = self.playlist_format.get().lower() if output_kind == "video" else "mp4"
         playlist = dict(self.playlist)
@@ -1856,7 +1948,7 @@ class TunekaApp:
         def worker():
             try:
                 result = self._playlist_download_worker(
-                    playlist, entries, output_kind, resolution, video_format, parent, control,
+                    playlist, entries, output_kind, music_format, resolution, video_format, parent, control,
                 )
                 self.root.after(0, lambda: self._playlist_download_done(result))
             except DownloadCancelled:
@@ -1865,7 +1957,8 @@ class TunekaApp:
                 self.root.after(0, lambda error=str(exc): self._playlist_download_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _playlist_download_worker(self, playlist, entries, output_kind, resolution, video_format, parent, control):
+    def _playlist_download_worker(self, playlist, entries, output_kind, music_format, resolution, video_format,
+                                  parent, control):
         output_dir = parent / safe_foldername(playlist["title"])
         output_dir.mkdir(parents=True, exist_ok=True)
         completed, failures, cover_warning = [], [], False
@@ -1877,7 +1970,7 @@ class TunekaApp:
                 overall = int(((position - 1) + fraction) * 100 / total)
                 self._thread_progress(f"{position}/{total} · {title} — {text}", overall)
             try:
-                if output_kind == "mp3":
+                if output_kind == "music":
                     details = info_for(entry["url"], control)
                     single_track = {
                         "title": details["title"], "thumbnail": details.get("thumbnail"),
@@ -1887,7 +1980,7 @@ class TunekaApp:
                     _, tracks, missing_cover = split_video(
                         entry["url"], single_track, [0], output_dir, item_progress,
                         jobdir_override=output_dir, filename_prefix=f"{position:02d} - ",
-                        control=control, number_tracks=False,
+                        control=control, number_tracks=False, audio_format=music_format,
                     )
                     completed.extend(tracks)
                     cover_warning = cover_warning or missing_cover
@@ -1903,7 +1996,7 @@ class TunekaApp:
         if not completed and failures:
             raise RuntimeError("Не вдалося завантажити жодне відео.\n\n" + "\n".join(failures[:5]))
         return {"output_dir": output_dir, "files": completed, "failures": failures,
-                "cover_warning": cover_warning, "kind": output_kind}
+                "cover_warning": cover_warning, "kind": output_kind, "music_format": music_format}
 
     def _playlist_download_done(self, result):
         self.busy = False
@@ -1913,13 +2006,23 @@ class TunekaApp:
         self.playlist_download_button.set_state("normal")
         count = len(result["files"])
         failed = len(result["failures"])
-        label = "MP3-файлів" if result["kind"] == "mp3" else "відео"
-        summary = f"Збережено {count} {label}."
+        if result["kind"] == "music":
+            label = (f"{result['music_format'].upper()} audio files" if self.language == "en"
+                     else f"{result['music_format'].upper()} аудіофайлів")
+        else:
+            label = "videos" if self.language == "en" else "відео"
+        summary = (f"Saved {count} {label}." if self.language == "en"
+                   else f"Збережено {count} {label}.")
         if failed:
-            summary += f" Не вдалося завантажити: {failed}.\n\n" + "\n".join(result["failures"][:5])
+            failure_summary = (f" Failed to download: {failed}." if self.language == "en"
+                               else f" Не вдалося завантажити: {failed}.")
+            summary += failure_summary + "\n\n" + "\n".join(result["failures"][:5])
         if result["cover_warning"]:
-            summary += "\n\nДля частини MP3 не вдалося додати обкладинку."
-        self._set_status(f"{count} {label} збережено. Тека: {result['output_dir']}", 100)
+            summary += ("\n\nCould not add cover art to some music files." if self.language == "en"
+                        else "\n\nДля частини музичних файлів не вдалося додати обкладинку.")
+        status = (f"Saved {count} {label}. Folder: {result['output_dir']}" if self.language == "en"
+                  else f"{count} {label} збережено. Тека: {result['output_dir']}")
+        self._set_status(status, 100)
         kind = "warning" if failed or result["cover_warning"] else "success"
         self._show_dialog("Завантаження плейлиста завершено", f"{summary}\n\nТека: {result['output_dir']}", kind)
 
@@ -2023,7 +2126,7 @@ class TunekaApp:
                 for position, item in enumerate(videos, 1):
                     control.check_cancelled()
                     video, url = item["video"], item["url"]
-                    output_dir = download_parent / safe_foldername(video["title"])
+                    output_dir = download_parent
                     def item_progress(text, value, position=position, title=video["title"]):
                         overall = int(((position - 1) + max(0, min(value, 100)) / 100) * 100 / len(videos))
                         self._thread_progress(f"{position}/{len(videos)} · {title} — {text}", overall)
@@ -2087,8 +2190,10 @@ class TunekaApp:
         resolution = self.options_resolution.get()
         self.default_video_resolution = "best" if resolution == "Автоматично" else resolution
         self.default_video_format = self.options_format.get().lower()
-        self.default_playlist_output = "video" if self.options_playlist_output.get() == "Відео" else "mp3"
+        self.default_playlist_output = "video" if self.options_playlist_output.get() == "Відео" else "music"
+        self.default_playlist_music_format = self.options_playlist_music_format.get().lower()
         self._set_playlist_output(self.default_playlist_output, persist=False)
+        self.playlist_music_format.set(self.default_playlist_music_format.upper())
         self.playlist_resolution.set("Автоматично" if self.default_video_resolution == "best"
                                      else self.default_video_resolution)
         self.playlist_format.set(self._video_format_label(self.default_video_format))
@@ -2219,10 +2324,19 @@ class TunekaApp:
     def _load_preferences() -> dict:
         try:
             settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            playlist_output = settings.get("default_playlist_output", "music")
+            if playlist_output == "mp3":
+                playlist_output = "music"
+            if playlist_output not in ("music", "video"):
+                playlist_output = "music"
+            playlist_music_format = str(settings.get("default_playlist_music_format", "mp3")).lower()
+            if playlist_music_format not in AUDIO_FORMATS:
+                playlist_music_format = "mp3"
             return {
                 "default_video_format": settings.get("default_video_format", "mp4"),
                 "default_video_resolution": settings.get("default_video_resolution", "best"),
-                "default_playlist_output": settings.get("default_playlist_output", "mp3"),
+                "default_playlist_output": playlist_output,
+                "default_playlist_music_format": playlist_music_format,
                 "language": settings.get("language", "uk"),
             }
         except (OSError, ValueError, AttributeError):
@@ -2241,6 +2355,7 @@ class TunekaApp:
             settings["default_video_format"] = self.default_video_format
             settings["default_video_resolution"] = self.default_video_resolution
             settings["default_playlist_output"] = self.default_playlist_output
+            settings["default_playlist_music_format"] = self.default_playlist_music_format
             settings["language"] = self.language
             SETTINGS_PATH.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
         except OSError:

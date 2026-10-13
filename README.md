@@ -6,10 +6,10 @@ Tuneka is a desktop application for downloading YouTube music mixes, playlists, 
 
 - **Music by chapters:** Choose chapters and save them as individual MP3 files with embedded cover art.
 - **Multiple links:** Add several YouTube video links at once, combine their chapters into one selection, and process video downloads in sequence.
-- **Playlists:** Select the videos you want and download each as an MP3 or a video file.
+- **Playlists:** Select the videos you want and download each as music (MP3, M4A, FLAC, or WAV) or as a video file.
 - **Single videos:** Choose a resolution and a container: MP4, MKV, or WebM.
 - **Download controls:** View progress, pause and resume, or cancel an active download.
-- **Preferences:** Set the download folder, default video quality and format, playlist format, color theme, and interface language.
+- **Preferences:** Set the download folder, default video quality and format, playlist output and music format, color theme, and interface language. Video quality and file format choices are saved automatically and shared by the video and playlist modes.
 - **Localization:** Ukrainian and English interface languages.
 - **Themes:** Light by default, with olive and purple alternatives.
 
@@ -64,7 +64,7 @@ xvfb-run --auto-servernum python3 -m unittest discover --start-directory tests -
 
 ## Downloads and settings
 
-By default, source runs save files under a `downloads/` folder beside the application. The Windows portable build defaults to the user's Downloads folder. Music tracks and individual videos are placed in a subfolder named after the video; playlist downloads go into a folder named after the playlist. The destination folder can be changed in the app, and the selection is remembered between launches.
+By default, source runs save files under a `downloads/` folder beside the application. The Windows portable build defaults to the user's Downloads folder. A chaptered music mix gets its own folder named after the video; a mix without chapters is saved as one MP3 directly in the selected folder. Standalone videos are also saved directly in the selected folder. Playlist downloads get one folder named after the playlist, containing the selected videos or MP3 files. The destination folder can be changed in the app, and the selection is remembered between launches.
 
 Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Cover art is embedded in the MP3 metadata. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application for source runs and under `%LOCALAPPDATA%\Tuneka` in the Windows portable build.
 
