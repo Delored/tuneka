@@ -18,6 +18,7 @@ from tkinter import ttk
 from tkinter import font as tkfont
 from urllib.parse import urlparse
 from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa_rounded
+from i18n import UK_TO_EN, translate
 
 ROOT = Path(__file__).resolve().parent
 RESOURCES = ROOT / "resources"
@@ -626,6 +627,8 @@ class RoundedButton(tk.Frame):
 
     def __init__(self, master, text: str, command, *, variant="secondary", height=38, bg="#111511"):
         super().__init__(master, bg=bg, bd=0, highlightthickness=0)
+        self.source_label = text
+        self.translate = lambda value: value
         self.label = text
         self.command = command
         self.variant = variant
@@ -707,15 +710,18 @@ class RoundedButton(tk.Frame):
         self._draw()
 
     def set_text(self, text: str):
-        self.label = text
-        self.button_width = self.font.measure(text) + (36 if self.variant == "primary" else 30)
+        self.source_label = text
+        self.label = self.translate(text)
+        self.button_width = self.font.measure(self.label) + (36 if self.variant == "primary" else 30)
         self.canvas.configure(width=self.button_width)
         self._draw()
 
     def set_variant(self, variant: str):
         self.variant = variant
         self.font.configure(weight="bold" if variant == "primary" else "normal")
-        self.set_text(self.label)
+        self.button_width = self.font.measure(self.label) + (36 if self.variant == "primary" else 30)
+        self.canvas.configure(width=self.button_width)
+        self._draw()
 
 
 class RoundedEntry(tk.Frame):
@@ -888,6 +894,9 @@ class TrackSplitApp:
         self.default_video_format = preferences.get("default_video_format", "mp4")
         self.default_video_resolution = preferences.get("default_video_resolution", "best")
         self.default_playlist_output = preferences.get("default_playlist_output", "mp3")
+        self.language = preferences.get("language", "uk")
+        if self.language not in ("uk", "en"):
+            self.language = "uk"
         self.applied_theme = "olive"
         self.last_output_dir: Path | None = None
         self.download_controller: DownloadController | None = None
@@ -930,6 +939,7 @@ class TrackSplitApp:
                        foreground=[("readonly", "#f0f4ed")], selectbackground=[("readonly", "#34442c")])
         self._build_ui()
         self._apply_theme(self.theme_name, save=False)
+        self._apply_language(self.language, persist=False)
         self.root.after(100, self._bootstrap_tools)
 
     def _build_ui(self):
@@ -1275,22 +1285,29 @@ class TrackSplitApp:
         self.options_resolution, self.options_format = self._build_video_options(defaults.content, "ЗА ЗАМОВЧУВАННЯМ")
         preferences = tk.Frame(defaults.content, bg="#1b211c")
         preferences.pack(fill="x", pady=(20, 0))
-        playlist = tk.Frame(preferences, bg="#1b211c")
-        playlist.pack(side="left", fill="x", expand=True)
-        appearance = tk.Frame(preferences, bg="#1b211c")
-        appearance.pack(side="left", fill="x", expand=True, padx=(18, 0))
-        tk.Label(playlist, text="ФОРМАТ ПЛЕЙЛИСТІВ", bg="#1b211c", fg="#9aa797",
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 8))
-        self.options_playlist_output = Choice(playlist, width=25,
+        for column in range(3):
+            preferences.grid_columnconfigure(column, weight=1, uniform="settings_preferences")
+
+        tk.Label(preferences, text="ФОРМАТ ПЛЕЙЛИСТІВ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 8))
+        self.options_playlist_output = Choice(preferences, width=25,
                                               values=("MP3 · один файл на відео", "Відео"))
-        self.options_playlist_output.pack(anchor="w")
+        self.options_playlist_output.grid(row=1, column=0, sticky="w")
         self.options_playlist_output.set("Відео" if self.default_playlist_output == "video" else "MP3 · один файл на відео")
-        tk.Label(appearance, text="КОЛІРНА ТЕМА", bg="#1b211c", fg="#9aa797",
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 8))
-        self.options_theme = Choice(appearance, width=18, values=tuple(t["label"] for t in THEMES.values()))
-        self.options_theme.pack(anchor="w")
+
+        tk.Label(preferences, text="КОЛІРНА ТЕМА", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).grid(row=0, column=1, sticky="w", pady=(0, 8))
+        self.options_theme = Choice(preferences, width=18, values=tuple(t["label"] for t in THEMES.values()))
+        self.options_theme.grid(row=1, column=1, sticky="w")
         self.options_theme.set(THEMES[self.theme_name]["label"])
         self.options_theme.bind("<<ComboboxSelected>>", self._change_theme_from_selection)
+
+        tk.Label(preferences, text="МОВА ІНТЕРФЕЙСУ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).grid(row=0, column=2, sticky="w", pady=(0, 8))
+        self.options_language = Choice(preferences, width=18, values=("uk", "en"))
+        self.options_language.grid(row=1, column=2, sticky="w")
+        self.options_language.set(self.language)
+        self.options_language.bind("<<ComboboxSelected>>", self._change_language_from_selection)
         self.options_save_button = RoundedButton(self.action_host, text="Зберегти опції", command=self._save_preferences_from_ui,
                                                  variant="primary", height=42, bg="#111511")
 
@@ -1310,15 +1327,71 @@ class TrackSplitApp:
         self.footer_card.after_idle(self.footer_card._fit_height)
         titles = {"music": "Музика по розділах", "playlist": "Плейлист",
                   "video": "Відео", "options": "Опції"}
-        self.page_title.configure(text=f"Колекція  /  {titles[page_key]}")
+        self._set_label(self.page_title, f"Колекція  /  {titles[page_key]}")
         for key, button in self.nav_buttons.items():
             button.set_variant("primary" if key == page_key else "secondary")
         self.active_page = page_key
 
+    def _tr(self, text):
+        return translate(text, self.language)
+
+    def _set_label(self, widget, text):
+        widget._i18n_source = text
+        widget.configure(text=self._tr(text))
+
+    @staticmethod
+    def _set_dynamic_label(widget, text):
+        if hasattr(widget, "_i18n_source"):
+            del widget._i18n_source
+        widget.configure(text=text)
+
+    def _apply_language(self, language, *, persist=True):
+        self.language = language if language in ("uk", "en") else "uk"
+        for widget in self._walk_widgets(self.root):
+            if isinstance(widget, RoundedButton):
+                widget.translate = self._tr
+                widget.set_text(widget.source_label)
+            elif isinstance(widget, Choice):
+                widget.set_translator(self._tr)
+            elif isinstance(widget, EmptyState):
+                widget.translate = self._tr
+                widget._draw()
+            elif isinstance(widget, ttk.Treeview):
+                sources = getattr(widget, "_i18n_headings", {})
+                for column in ("#0", *widget["columns"]):
+                    heading = widget.heading(column)
+                    source = sources.get(column, heading.get("text", ""))
+                    if source:
+                        sources[column] = source
+                        widget.heading(column, text=self._tr(source))
+                widget._i18n_headings = sources
+            elif isinstance(widget, tk.Label) and not widget.cget("textvariable"):
+                source = getattr(widget, "_i18n_source", None)
+                if source is None:
+                    candidate = widget.cget("text")
+                    # Only claim known interface strings. Paths and media titles
+                    # are user data and must never be translated.
+                    if candidate not in UK_TO_EN:
+                        continue
+                    source = candidate
+                    widget._i18n_source = source
+                widget.configure(text=self._tr(source))
+        if hasattr(self, "status"):
+            self.status.set(self._tr(getattr(self, "_status_source", "Перевіряю інструменти…")))
+        if hasattr(self, "options_language"):
+            self.options_language.set(self.language)
+        if getattr(self, "active_page", None):
+            self._show_page(self.active_page)
+        if persist:
+            self._save_settings()
+
+    def _change_language_from_selection(self, _event=None):
+        self._apply_language(self.options_language.get())
+
     def _music_url_changed(self, *_):
         self.video = None
-        self.video_label.configure(text="Треки")
-        self.chapter_count.configure(text="MP3 · з обкладинкою")
+        self._set_label(self.video_label, "Треки")
+        self._set_label(self.chapter_count, "MP3 · з обкладинкою")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.select_button.set_state("disabled")
@@ -1328,7 +1401,7 @@ class TrackSplitApp:
         self.playlist = None
         for item in self.playlist_tree.get_children():
             self.playlist_tree.delete(item)
-        self.playlist_title_label.configure(text="Відео плейлиста")
+        self._set_label(self.playlist_title_label, "Відео плейлиста")
         self.playlist_count_label.configure(text="")
         self.playlist_select_button.set_state("disabled")
         self.playlist_download_button.set_state("disabled")
@@ -1414,8 +1487,8 @@ class TrackSplitApp:
                                       values=(entry["title"], self._duration_text(entry.get("duration"))))
         children = self.playlist_tree.get_children()
         self.playlist_tree.selection_set(children)
-        self.playlist_title_label.configure(text=playlist["title"])
-        self.playlist_count_label.configure(text=f"{len(children)} ВІДЕО")
+        self._set_dynamic_label(self.playlist_title_label, playlist["title"])
+        self._set_label(self.playlist_count_label, f"{len(children)} ВІДЕО")
         self.playlist_select_button.set_state("normal")
         self.playlist_select_button.set_text("Зняти вибір")
         self.playlist_download_button.set_state("normal")
@@ -1550,7 +1623,9 @@ class TrackSplitApp:
         self.video_info = video
         self.video_info_url = url
         self.video_preview.title = video["title"]
-        self.video_preview.description = f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  Готове до завантаження"
+        self.video_preview.description = (
+            f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  {self._tr('Готове до завантаження')}"
+        )
         self.video_preview._draw()
         self.video_download_button.set_state("normal")
         self._set_status(f"Готово до завантаження: {video['title']}", 0)
@@ -1636,11 +1711,11 @@ class TrackSplitApp:
             if controller.paused:
                 controller.resume()
                 self.pause_download_button.set_text("Пауза")
-                self.status.set("Продовжую завантаження…")
+                self._set_status("Продовжую завантаження…")
             else:
                 controller.pause()
                 self.pause_download_button.set_text("Продовжити")
-                self.status.set("Завантаження призупинено.")
+                self._set_status("Завантаження призупинено.")
         except OSError as exc:
             self._show_dialog("Керування завантаженням", str(exc), "warning")
 
@@ -1651,7 +1726,7 @@ class TrackSplitApp:
         controller.cancel()
         self.cancel_download_button.set_state("disabled")
         self.pause_download_button.set_state("disabled")
-        self.status.set("Скасовую завантаження…")
+        self._set_status("Скасовую завантаження…")
 
     def _finish_download_controls(self):
         self.pause_download_button.set_text("Пауза")
@@ -1666,14 +1741,15 @@ class TrackSplitApp:
         self._set_status("Завантаження скасовано. Вже готові файли збережено.", 0)
 
     def _set_status(self, text: str, value: int | None = None):
-        self.status.set(text)
+        self._status_source = text
+        self.status.set(self._tr(text))
         if value is not None:
             self.progress.set_value(value)
 
     def _show_dialog(self, title: str, message: str, kind: str = "info"):
         theme = THEMES[self.theme_name]
         dialog = tk.Toplevel(self.root)
-        dialog.title(title)
+        dialog.title(self._tr(title))
         dialog.configure(bg=theme["bg"])
         dialog.resizable(False, False)
         dialog.transient(self.root)
@@ -1690,13 +1766,13 @@ class TrackSplitApp:
         icon_canvas.pack(side="left", padx=(0, 11))
         icon_canvas.create_oval(2, 2, 32, 32, fill=badge_color, outline="")
         icon_canvas.create_text(17, 17, text=icon, fill=badge_text, font=(FONT, 14, "bold"))
-        tk.Label(header, text=title, bg=theme["card"], fg=theme["ink"],
+        tk.Label(header, text=self._tr(title), bg=theme["card"], fg=theme["ink"],
                  font=(FONT, 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
-        tk.Label(content, text=message, bg=theme["card"], fg=theme["muted"],
+        tk.Label(content, text=self._tr(message), bg=theme["card"], fg=theme["muted"],
                  font=(FONT, 10), anchor="w", justify="left", wraplength=440).pack(fill="x")
         footer = tk.Frame(content, bg=theme["card"])
         footer.pack(fill="x", pady=(20, 0))
-        RoundedButton(footer, text="Гаразд", command=dialog.destroy, variant="primary", height=38,
+        RoundedButton(footer, text=self._tr("Гаразд"), command=dialog.destroy, variant="primary", height=38,
                       bg=theme["card"]).pack(side="right")
         dialog.bind("<Return>", lambda _event: dialog.destroy())
         dialog.bind("<Escape>", lambda _event: dialog.destroy())
@@ -1743,6 +1819,7 @@ class TrackSplitApp:
                 "default_video_format": settings.get("default_video_format", "mp4"),
                 "default_video_resolution": settings.get("default_video_resolution", "best"),
                 "default_playlist_output": settings.get("default_playlist_output", "mp3"),
+                "language": settings.get("language", "uk"),
             }
         except (OSError, ValueError, AttributeError):
             return {}
@@ -1760,6 +1837,7 @@ class TrackSplitApp:
             settings["default_video_format"] = self.default_video_format
             settings["default_video_resolution"] = self.default_video_resolution
             settings["default_playlist_output"] = self.default_playlist_output
+            settings["language"] = self.language
             SETTINGS_PATH.write_text(json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8")
         except OSError:
             pass
@@ -1859,7 +1937,7 @@ class TrackSplitApp:
             start = Path.home()
 
         dialog = tk.Toplevel(self.root)
-        dialog.title("Тека для завантажень")
+        dialog.title(self._tr("Тека для завантажень"))
         dialog.configure(bg=theme["bg"])
         dialog.transient(self.root)
         dialog.resizable(True, True)
@@ -1871,9 +1949,9 @@ class TrackSplitApp:
         card.pack(fill="both", expand=True, padx=12, pady=12)
         content = card.content
 
-        tk.Label(content, text="Куди зберігати файли?", bg=theme["card"], fg=theme["ink"],
+        tk.Label(content, text=self._tr("Куди зберігати файли?"), bg=theme["card"], fg=theme["ink"],
                  font=(FONT, 17, "bold"), anchor="w").pack(fill="x")
-        tk.Label(content, text="Обери теку зі списку або введи шлях вручну.",
+        tk.Label(content, text=self._tr("Обери теку зі списку або введи шлях вручну."),
                  bg=theme["card"], fg=theme["muted"], font=(FONT, 10),
                  anchor="w").pack(fill="x", pady=(4, 16))
 
@@ -1883,7 +1961,7 @@ class TrackSplitApp:
         path_entry = RoundedEntry(path_row, path_var, bg=theme["card"],
                                   field=theme["field"], fg=theme["ink"])
         path_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        path_entry.placeholder.configure(text="Шлях до теки…", bg=theme["field"], fg=theme["muted"])
+        path_entry.placeholder.configure(text=self._tr("Шлях до теки…"), bg=theme["field"], fg=theme["muted"])
         path_entry.border = path_entry.default_border = theme["outline"]
         path_entry.focus_color = theme["focus"]
         path_entry.selection_color = theme["entry_select"]
@@ -1909,7 +1987,7 @@ class TrackSplitApp:
         listing.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y", padx=(5, 0))
 
-        status = tk.Label(content, text="Подвійне натискання відкриває теку.",
+        status = tk.Label(content, text=self._tr("Подвійне натискання відкриває теку."),
                           bg=theme["card"], fg=theme["muted"], font=(FONT, 9), anchor="w")
         status.pack(fill="x", pady=(10, 12))
         footer = tk.Frame(content, bg=theme["card"])
@@ -1929,7 +2007,7 @@ class TrackSplitApp:
                 folders = sorted((item for item in candidate.iterdir() if item.is_dir()),
                                  key=lambda item: item.name.casefold())
             except (OSError, RuntimeError) as exc:
-                status.configure(text=f"Не вдалося відкрити теку: {exc}", fg="#f07888")
+                status.configure(text=self._tr(f"Не вдалося відкрити теку: {exc}"), fg="#f07888")
                 return
             current["path"] = candidate
             path_var.set(str(candidate))
@@ -1940,7 +2018,8 @@ class TrackSplitApp:
                 child_paths[item_id] = folder
                 listing.insert("", "end", iid=item_id, text=f"📁  {folder.name}")
             status.configure(
-                text=(f"{len(folders)} тек" if folders else "У цій теці немає підпапок. Її можна вибрати."),
+                text=(self._tr(f"Підпапок: {len(folders)}") if folders else
+                      self._tr("У цій теці немає підпапок. Її можна вибрати.")),
                 fg=theme["muted"],
             )
 
@@ -1962,11 +2041,11 @@ class TrackSplitApp:
         def cancel():
             dialog.destroy()
 
-        RoundedButton(path_row, text="Вгору ↑", command=go_to_parent,
+        RoundedButton(path_row, text=self._tr("Вгору ↑"), command=go_to_parent,
                       variant="secondary", height=38, bg=theme["card"]).pack(side="right")
-        RoundedButton(footer, text="Скасувати", command=cancel,
+        RoundedButton(footer, text=self._tr("Скасувати"), command=cancel,
                       variant="secondary", height=38, bg=theme["card"]).pack(side="right")
-        RoundedButton(footer, text="Вибрати цю теку", command=confirm,
+        RoundedButton(footer, text=self._tr("Вибрати цю теку"), command=confirm,
                       variant="primary", height=38, bg=theme["card"]).pack(side="right", padx=(0, 8))
 
         listing.bind("<Double-1>", enter_selected)
@@ -1987,7 +2066,7 @@ class TrackSplitApp:
             return
         self.download_parent = selected
         self._fit_destination()
-        self.options_folder_label.configure(text=str(self.download_parent))
+        self._set_dynamic_label(self.options_folder_label, str(self.download_parent))
         try:
             self._save_settings()
         except OSError as exc:
@@ -1995,7 +2074,7 @@ class TrackSplitApp:
 
     def _thread_progress(self, text: str, value: int):
         def update():
-            self.status.set(text)
+            self._set_status(text)
             if value > 0 or not self.progress.indeterminate:
                 self.progress.set_value(value)
         self.root.after(0, update)
@@ -2092,7 +2171,7 @@ class TrackSplitApp:
             start = int(chapter["start"])
             self.tree.insert("", "end", iid=str(chapter["index"]), values=(chapter["title"], f"{start // 60:02}:{start % 60:02}"))
         self.tree.selection_set(self.tree.get_children())
-        self.video_label.configure(text=video["title"])
+        self._set_dynamic_label(self.video_label, video["title"])
         chapter_total = len(video["chapters"])
         if chapter_total % 10 == 1 and chapter_total % 100 != 11:
             chapter_word = "РОЗДІЛ"
@@ -2100,7 +2179,7 @@ class TrackSplitApp:
             chapter_word = "РОЗДІЛИ"
         else:
             chapter_word = "РОЗДІЛІВ"
-        self.chapter_count.configure(text=f"{chapter_total} {chapter_word}")
+        self._set_label(self.chapter_count, f"{chapter_total} {chapter_word}")
         self.select_button.set_state("normal")
         self.select_button.set_text("Зняти вибір")
         self.download_button.set_state("normal")
