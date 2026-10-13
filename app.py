@@ -1180,9 +1180,9 @@ class TunekaApp:
         if self.default_playlist_output not in ("music", "video"):
             self.default_playlist_output = "music"
         self.default_playlist_music_format = preferences.get("default_playlist_music_format", "mp3")
-        self.language = preferences.get("language", "uk")
+        self.language = preferences.get("language", "en")
         if self.language not in ("uk", "en"):
-            self.language = "uk"
+            self.language = "en"
         self.applied_theme = "olive"
         self.last_output_dir: Path | None = None
         self.download_controller: DownloadController | None = None
@@ -1792,7 +1792,7 @@ class TunekaApp:
         widget.configure(text=text)
 
     def _apply_language(self, language, *, persist=True):
-        self.language = language if language in ("uk", "en") else "uk"
+        self.language = language if language in ("uk", "en") else "en"
         for widget in self._walk_widgets(self.root):
             if isinstance(widget, RoundedButton):
                 widget.translate = self._tr
@@ -2386,7 +2386,7 @@ class TunekaApp:
                 "default_video_resolution": settings.get("default_video_resolution", "best"),
                 "default_playlist_output": playlist_output,
                 "default_playlist_music_format": playlist_music_format,
-                "language": settings.get("language", "uk"),
+                "language": settings.get("language", "en"),
             }
         except (OSError, ValueError, AttributeError):
             return {}
