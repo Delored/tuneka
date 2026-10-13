@@ -1,5 +1,6 @@
 """Small native widgets used by Tuneka's desktop interface."""
 import math
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -363,3 +364,46 @@ class Choice(tk.Canvas):
         self.create_text(13, 19, text=self.translate(self.value), anchor="w",
                          fill=theme["ink"], font=(FONT, 10))
         self.create_line(width-23, 17, width-19, 21, width-15, 17, fill=theme["muted"], width=1.5)
+
+
+if sys.platform.startswith("win"):
+    class Choice(ttk.Combobox):
+        """Use the native Windows dropdown, which handles popup focus and mouse input."""
+        def __init__(self, parent, *, state="readonly", width=20, values=()):
+            self.values = tuple(values)
+            self.translate = lambda text: text
+            self.theme = None
+            super().__init__(parent, state=state, width=width,
+                             values=self._display_values(), style="TCombobox")
+            self.configure(font=(FONT, 10))
+
+        def _display_values(self):
+            return tuple(self.translate(value) for value in self.values)
+
+        def get(self):
+            displayed = super().get()
+            return next((value for value in self.values
+                         if self.translate(value) == displayed), displayed)
+
+        def set(self, value):
+            super().set(self.translate(value))
+
+        def _choose(self, value):
+            self.set(value)
+            self.event_generate("<<ComboboxSelected>>")
+
+        def _step(self, amount):
+            if self.values:
+                index = self.values.index(self.get()) if self.get() in self.values else 0
+                self._choose(self.values[(index + amount) % len(self.values)])
+            return "break"
+
+        def set_translator(self, translate):
+            current = self.get()
+            self.translate = translate
+            self.configure(values=self._display_values())
+            self.set(current)
+
+        def set_theme(self, theme):
+            self.theme = theme
+            self.configure(style="TCombobox")

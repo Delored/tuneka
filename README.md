@@ -11,7 +11,7 @@ Tuneka is a desktop application for downloading YouTube music mixes, playlists, 
 - **Download controls:** View progress, pause and resume, or cancel an active download.
 - **Preferences:** Set the download folder, default video quality and format, playlist format, color theme, and interface language.
 - **Localization:** Ukrainian and English interface languages.
-- **Themes:** Olive, purple, and light themes.
+- **Themes:** Light by default, with olive and purple alternatives.
 
 ## Requirements
 

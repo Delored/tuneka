@@ -2213,7 +2213,7 @@ class TunekaApp:
                 return saved
         except (OSError, ValueError, AttributeError):
             pass
-        return "olive"
+        return "light"
 
     @staticmethod
     def _load_preferences() -> dict:
@@ -2248,7 +2248,7 @@ class TunekaApp:
 
     def _apply_theme(self, theme_name: str, *, save=True):
         if theme_name not in THEMES:
-            theme_name = "olive"
+            theme_name = "light"
         theme = THEMES[theme_name]
         previous = THEMES[self.applied_theme]
         color_map = {previous[key]: theme[key] for key in theme if key in previous and key != "label"}
