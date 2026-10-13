@@ -1193,7 +1193,7 @@ class TunekaApp:
         self.root.title("Tuneka")
         if sys.platform.startswith("linux"):
             try:
-                self.root.wm_class("Tuneka", "Tuneka")
+                self.root.tk.call("wm", "class", self.root._w, "Tuneka")
             except tk.TclError:
                 pass
         app_icon = ROOT / "assets" / "tuneka.png"
