@@ -11,7 +11,7 @@ Tuneka is a desktop application for downloading YouTube music mixes, playlists, 
 - **Download controls:** View progress, pause and resume, or cancel an active download.
 - **Preferences:** Set the download folder, default video quality and format, playlist format, color theme, and interface language.
 - **Localization:** Ukrainian and English interface languages.
-- **Themes:** Olive, purple, and light themes.
+- **Themes:** Light by default, with olive and purple alternatives.
 
 ## Requirements
 
@@ -34,6 +34,10 @@ On Windows, use:
 ```powershell
 python app.py
 ```
+
+## Windows portable ZIP
+
+The GitHub Actions workflow builds a Windows x64 portable ZIP alongside the Debian packages. Download `Tuneka-windows-x64.zip` from a successful workflow run's artifacts, or from a GitHub Release. Extract the ZIP to a folder and launch `Tuneka.exe`; no Python installation is required. On first launch, Tuneka downloads the required `yt-dlp` and FFmpeg tools. The tools and settings are stored in `%LOCALAPPDATA%\Tuneka`, and downloads default to your Windows Downloads folder.
 
 Tuneka downloads `yt-dlp` from its [official GitHub releases](https://github.com/yt-dlp/yt-dlp/releases/latest) and FFmpeg from [imageio-binaries](https://github.com/imageio/imageio-binaries/tree/master/ffmpeg). Use **Update tools** in the app to download them again.
 
@@ -60,9 +64,9 @@ xvfb-run --auto-servernum python3 -m unittest discover --start-directory tests -
 
 ## Downloads and settings
 
-By default, files are saved under a `downloads/` folder beside the application. Music tracks and individual videos are placed in a subfolder named after the video; playlist downloads go into a folder named after the playlist. The destination folder can be changed in the app, and the selection is remembered between launches.
+By default, source runs save files under a `downloads/` folder beside the application. The Windows portable build defaults to the user's Downloads folder. Music tracks and individual videos are placed in a subfolder named after the video; playlist downloads go into a folder named after the playlist. The destination folder can be changed in the app, and the selection is remembered between launches.
 
-Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Cover art is embedded in the MP3 metadata. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application.
+Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Cover art is embedded in the MP3 metadata. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application for source runs and under `%LOCALAPPDATA%\Tuneka` in the Windows portable build.
 
 ## License
 
