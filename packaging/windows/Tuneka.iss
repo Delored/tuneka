@@ -14,7 +14,7 @@ AppPublisher={#AppPublisher}
 DefaultDirName={autopf}\Tuneka
 DefaultGroupName={#AppName}
 UninstallDisplayName={#AppName}
-UninstallDisplayIcon={app}\{#AppExeName}
+UninstallDisplayIcon={app}\tuneka.ico
 SetupIconFile=..\..\assets\tuneka.ico
 LicenseFile=..\..\LICENSE
 OutputBaseFilename=Tuneka-Setup-x64
@@ -37,8 +37,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "..\..\dist\Tuneka\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\tuneka.ico"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\tuneka.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: postinstall nowait skipifsilent

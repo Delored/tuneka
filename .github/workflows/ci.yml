@@ -95,7 +95,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ github.event.inputs.version }}
         run: |
-          Copy-Item README.md, LICENSE -Destination dist/Tuneka/
+          Copy-Item README.md, LICENSE, assets/tuneka.ico -Destination dist/Tuneka/
           if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch") {
             $version = $env:RELEASE_VERSION.TrimStart('v')
           } else {
