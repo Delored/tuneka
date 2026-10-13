@@ -102,12 +102,14 @@ class DesktopLayoutTests(unittest.TestCase):
 
     def test_control_a_selects_link_text_on_every_mode(self):
         a = self.app
-        for variable, rounded_entry in (
-            (a.url, a.url_entry),
-            (a.playlist_url, a.playlist_url_entry),
-            (a.video_url, a.video_url_entry),
+        for page, variable, rounded_entry in (
+            ('music', a.url, a.url_entry),
+            ('playlist', a.playlist_url, a.playlist_url_entry),
+            ('video', a.video_url, a.video_url_entry),
         ):
             with self.subTest(entry=rounded_entry):
+                a._show_page(page)
+                self.pump()
                 variable.set('https://youtube.com/watch?v=abcdefghijk')
                 rounded_entry.entry.focus_force()
                 self.pump()
