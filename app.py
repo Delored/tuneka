@@ -13,12 +13,11 @@ import tempfile
 import threading
 import time
 import urllib.request
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 from tkinter import font as tkfont
-from urllib.parse import urlparse
 from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa_rounded
 from i18n import UK_TO_EN, translate
 
@@ -39,6 +38,8 @@ YTDLP_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 YTDLP_RELEASE_HOSTS = {"github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"}
 IMAGEIO_REPO_API = "https://api.github.com/repos/imageio/imageio-binaries"
 IMAGEIO_DOWNLOAD_HOSTS = {"raw.githubusercontent.com"}
+YOUTUBE_THUMBNAIL_HOSTS = {"i.ytimg.com", "img.youtube.com"}
+MAX_COVER_BYTES = 5 * 1024 * 1024
 
 THEMES = {
     "olive": {
@@ -152,7 +153,12 @@ class _AllowedHTTPSRedirects(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         parsed = urlparse(newurl)
         host = (parsed.hostname or "").lower().rstrip(".")
-        if parsed.scheme != "https" or host not in self.allowed_hosts:
+        try:
+            allowed_port = parsed.port in (None, 443)
+        except ValueError:
+            allowed_port = False
+        if (parsed.scheme != "https" or host not in self.allowed_hosts
+                or parsed.username or parsed.password or not allowed_port):
             raise RuntimeError("Завантаження перенаправлено на недозволене джерело.")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -292,9 +298,43 @@ def valid_youtube_url(value: str) -> bool:
     try:
         parsed = urlparse(value)
         host = (parsed.hostname or "").lower().rstrip(".")
-        return parsed.scheme == "https" and (host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com"))
+        return (
+            parsed.scheme == "https"
+            and not parsed.username
+            and not parsed.password
+            and parsed.port in (None, 443)
+            and (host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com"))
+        )
     except ValueError:
         return False
+
+
+def youtube_video_url_from_entry(item: dict) -> str | None:
+    """Build a canonical YouTube watch URL without trusting extractor-provided hosts."""
+    video_id = item.get("id")
+    if not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+        video_id = item.get("url")
+    if isinstance(video_id, str) and re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    for candidate in (item.get("webpage_url"), item.get("url")):
+        if not isinstance(candidate, str) or not valid_youtube_url(candidate):
+            continue
+        parsed = urlparse(candidate)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        parts = [part for part in parsed.path.split("/") if part]
+        if host == "youtu.be" and parts:
+            video_id = parts[0]
+        elif parts == ["watch"]:
+            values = parse_qs(parsed.query).get("v", [])
+            video_id = values[0] if values else ""
+        elif len(parts) == 2 and parts[0] in {"shorts", "live", "embed", "v"}:
+            video_id = parts[1]
+        else:
+            video_id = ""
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            return f"https://www.youtube.com/watch?v={video_id}"
+    return None
 
 
 def parse_youtube_urls(value: str) -> tuple[list[str], list[str]]:
@@ -483,9 +523,7 @@ def playlist_info_for(url: str) -> dict:
         if not item:
             continue
         item_id = item.get("id")
-        item_url = item.get("webpage_url")
-        if not item_url or not item_url.startswith("http"):
-            item_url = f"https://www.youtube.com/watch?v={item_id}" if item_id else item.get("url")
+        item_url = youtube_video_url_from_entry(item)
         if not item_url:
             continue
         entries.append({
@@ -636,19 +674,41 @@ def timestamp(seconds: float) -> str:
 
 
 def download_cover(url: str | None, target: Path) -> Path | None:
-    if not url:
+    if not isinstance(url, str) or not url:
         return None
-    request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            if not response.headers.get("Content-Type", "").lower().startswith("image/"):
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if (parsed.scheme != "https" or host not in YOUTUBE_THUMBNAIL_HOSTS
+                or parsed.username or parsed.password or parsed.port not in (None, 443)):
+            return None
+        request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
+        opener = urllib.request.build_opener(_AllowedHTTPSRedirects(YOUTUBE_THUMBNAIL_HOSTS))
+        received = 0
+        allowed_types = {"image/jpeg", "image/png", "image/webp"}
+        with opener.open(request, timeout=30) as response:
+            final = urlparse(response.geturl())
+            final_host = (final.hostname or "").lower().rstrip(".")
+            if (final.scheme != "https" or final_host not in YOUTUBE_THUMBNAIL_HOSTS
+                    or response.headers.get_content_type().lower() not in allowed_types):
+                return None
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > MAX_COVER_BYTES:
                 return None
             with target.open("wb") as output:
-                shutil.copyfileobj(response, output)
-        return target if target.stat().st_size else None
-    except (OSError, ValueError):
+                while True:
+                    chunk = response.read(64 * 1024)
+                    if not chunk:
+                        break
+                    received += len(chunk)
+                    if received > MAX_COVER_BYTES:
+                        raise ValueError("Зображення обкладинки перевищує допустимий розмір.")
+                    output.write(chunk)
+        if received:
+            return target
+    except (OSError, RuntimeError, ValueError):
         target.unlink(missing_ok=True)
-        return None
+    return None
 
 
 def split_video(url: str, video: dict, selected: list[int], download_parent: Path, progress,
