@@ -1005,6 +1005,10 @@ class RoundedEntry(tk.Frame):
         self._update_placeholder()
         self.entry.bind("<FocusIn>", self._focus_in)
         self.entry.bind("<FocusOut>", self._focus_out)
+        self.entry.bind("<Control-a>", self._select_all)
+        self.entry.bind("<Control-A>", self._select_all)
+        if sys.platform == "darwin":
+            self.entry.bind("<Command-a>", self._select_all)
         self._draw()
 
     def _draw(self, _event=None):
@@ -1028,6 +1032,11 @@ class RoundedEntry(tk.Frame):
         self._update_placeholder()
         self.border = self.default_border
         self._draw()
+
+    def _select_all(self, _event=None):
+        self.entry.selection_range(0, "end")
+        self.entry.icursor("end")
+        return "break"
 
 
 class AnimatedProgressBar(tk.Canvas):

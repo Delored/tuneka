@@ -100,6 +100,24 @@ class DesktopLayoutTests(unittest.TestCase):
         self.assertTrue(a.tree.empty.winfo_ismapped())
         self.assertEqual(a.url.get(), '')
 
+    def test_control_a_selects_link_text_on_every_mode(self):
+        a = self.app
+        for variable, rounded_entry in (
+            (a.url, a.url_entry),
+            (a.playlist_url, a.playlist_url_entry),
+            (a.video_url, a.video_url_entry),
+        ):
+            with self.subTest(entry=rounded_entry):
+                variable.set('https://youtube.com/watch?v=abcdefghijk')
+                rounded_entry.entry.focus_force()
+                self.pump()
+                rounded_entry.entry.event_generate('<Control-a>')
+                self.pump()
+                self.assertTrue(rounded_entry.entry.selection_present())
+                rounded_entry.entry.event_generate('<BackSpace>')
+                self.pump()
+                self.assertEqual(variable.get(), '')
+
     def test_light_theme_is_persisted(self):
         with tempfile.TemporaryDirectory() as folder, patch('app.SETTINGS_PATH', Path(folder) / 'settings.json'):
             self.app.theme_selector._choose('Світла')
