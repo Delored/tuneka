@@ -14,7 +14,7 @@ import time
 import urllib.request
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, ttk
+from tkinter import ttk
 from tkinter import font as tkfont
 from urllib.parse import urlparse
 from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa_rounded
@@ -670,7 +670,12 @@ class RoundedButton(tk.Frame):
             # widget while mapping focus_displayof().
             has_focus = False
         if has_focus and not getattr(self, "navigation", False):
-            draw_round_rect(self.canvas, width, height, 14, "", getattr(self, "FOCUS_COLOR", "#8fae52"))
+            # Redraw the button fill under its focus outline. An outline-only
+            # rounded shape blends its corner pixels with the canvas background,
+            # which creates dark gaps over the colored button.
+            radius = 18 if getattr(self, "navigation", False) else height // 2
+            draw_round_rect(self.canvas, width, height, radius, fill,
+                            getattr(self, "FOCUS_COLOR", "#8fae52"))
         self.canvas.create_text(16 if getattr(self, "navigation", False) else width / 2, height / 2,
                                 anchor="w" if getattr(self, "navigation", False) else "center", text=self.label, fill=text_color,
                                 font=self.font, tags="button-text")
@@ -1848,12 +1853,139 @@ class TrackSplitApp:
             yield from TrackSplitApp._walk_widgets(child)
 
     def _choose_download_parent(self):
-        selected = filedialog.askdirectory(
-            title="Виберіть теку для збереження відео", initialdir=str(self.download_parent), mustexist=True
-        )
-        if not selected:
+        theme = THEMES[self.theme_name]
+        start = self.download_parent.expanduser()
+        if not start.is_dir():
+            start = Path.home()
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Тека для завантажень")
+        dialog.configure(bg=theme["bg"])
+        dialog.transient(self.root)
+        dialog.resizable(True, True)
+        dialog.minsize(600, 440)
+
+        card = RoundedCard(dialog, bg=theme["bg"], fill=theme["card"],
+                           padding=20, radius=22, expand_content=True)
+        card.border = theme["border"]
+        card.pack(fill="both", expand=True, padx=12, pady=12)
+        content = card.content
+
+        tk.Label(content, text="Куди зберігати файли?", bg=theme["card"], fg=theme["ink"],
+                 font=(FONT, 17, "bold"), anchor="w").pack(fill="x")
+        tk.Label(content, text="Обери теку зі списку або введи шлях вручну.",
+                 bg=theme["card"], fg=theme["muted"], font=(FONT, 10),
+                 anchor="w").pack(fill="x", pady=(4, 16))
+
+        path_row = tk.Frame(content, bg=theme["card"])
+        path_row.pack(fill="x", pady=(0, 12))
+        path_var = tk.StringVar(value=str(start))
+        path_entry = RoundedEntry(path_row, path_var, bg=theme["card"],
+                                  field=theme["field"], fg=theme["ink"])
+        path_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        path_entry.placeholder.configure(text="Шлях до теки…", bg=theme["field"], fg=theme["muted"])
+        path_entry.border = path_entry.default_border = theme["outline"]
+        path_entry.focus_color = theme["focus"]
+        path_entry.selection_color = theme["entry_select"]
+        path_entry.entry.configure(selectbackground=theme["entry_select"])
+
+        browser = RoundedCard(content, bg=theme["card"], fill=theme["field"],
+                              padding=7, radius=15, expand_content=True)
+        browser.border = theme["border"]
+        browser.pack(fill="both", expand=True)
+
+        style_name = "Folder.Treeview"
+        self.style.configure(style_name, rowheight=36, font=(FONT, 10),
+                             background=theme["field"], fieldbackground=theme["field"],
+                             foreground=theme["ink"], borderwidth=0, relief="flat")
+        self.style.map(style_name, background=[("selected", theme["selected"])],
+                       foreground=[("selected", theme["selected_fg"])])
+        listing = ttk.Treeview(browser.content, show="tree", selectmode="browse",
+                               style=style_name, takefocus=True)
+        listing.column("#0", stretch=True, width=500)
+        scrollbar = ttk.Scrollbar(browser.content, orient="vertical", command=listing.yview,
+                                  style="Vertical.TScrollbar")
+        listing.configure(yscrollcommand=scrollbar.set)
+        listing.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y", padx=(5, 0))
+
+        status = tk.Label(content, text="Подвійне натискання відкриває теку.",
+                          bg=theme["card"], fg=theme["muted"], font=(FONT, 9), anchor="w")
+        status.pack(fill="x", pady=(10, 12))
+        footer = tk.Frame(content, bg=theme["card"])
+        footer.pack(fill="x")
+        result = {"path": None}
+        current = {"path": start.resolve()}
+        child_paths = {}
+
+        def navigate(path):
+            candidate = Path(path).expanduser()
+            if not candidate.is_absolute():
+                candidate = current["path"] / candidate
+            try:
+                candidate = candidate.resolve(strict=True)
+                if not candidate.is_dir():
+                    raise NotADirectoryError(str(candidate))
+                folders = sorted((item for item in candidate.iterdir() if item.is_dir()),
+                                 key=lambda item: item.name.casefold())
+            except (OSError, RuntimeError) as exc:
+                status.configure(text=f"Не вдалося відкрити теку: {exc}", fg="#f07888")
+                return
+            current["path"] = candidate
+            path_var.set(str(candidate))
+            listing.delete(*listing.get_children())
+            child_paths.clear()
+            for index, folder in enumerate(folders):
+                item_id = str(index)
+                child_paths[item_id] = folder
+                listing.insert("", "end", iid=item_id, text=f"📁  {folder.name}")
+            status.configure(
+                text=(f"{len(folders)} тек" if folders else "У цій теці немає підпапок. Її можна вибрати."),
+                fg=theme["muted"],
+            )
+
+        def enter_selected(_event=None):
+            selection = listing.selection()
+            if selection:
+                navigate(child_paths[selection[0]])
+            return "break"
+
+        def go_to_parent():
+            parent = current["path"].parent
+            if parent != current["path"]:
+                navigate(parent)
+
+        def confirm():
+            result["path"] = current["path"]
+            dialog.destroy()
+
+        def cancel():
+            dialog.destroy()
+
+        RoundedButton(path_row, text="Вгору ↑", command=go_to_parent,
+                      variant="secondary", height=38, bg=theme["card"]).pack(side="right")
+        RoundedButton(footer, text="Скасувати", command=cancel,
+                      variant="secondary", height=38, bg=theme["card"]).pack(side="right")
+        RoundedButton(footer, text="Вибрати цю теку", command=confirm,
+                      variant="primary", height=38, bg=theme["card"]).pack(side="right", padx=(0, 8))
+
+        listing.bind("<Double-1>", enter_selected)
+        listing.bind("<Return>", enter_selected)
+        path_entry.entry.bind("<Return>", lambda _event: navigate(path_var.get()))
+        dialog.bind("<Escape>", lambda _event: cancel())
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        navigate(start)
+
+        dialog.geometry(f"700x570+{self.root.winfo_rootx()+max(0, (self.root.winfo_width()-700)//2)}"
+                        f"+{self.root.winfo_rooty()+max(0, (self.root.winfo_height()-570)//2)}")
+        dialog.grab_set()
+        path_entry.entry.focus_set()
+        self.root.wait_window(dialog)
+
+        selected = result["path"]
+        if selected is None:
             return
-        self.download_parent = Path(selected)
+        self.download_parent = selected
         self._fit_destination()
         self.options_folder_label.configure(text=str(self.download_parent))
         try:

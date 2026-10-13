@@ -270,7 +270,10 @@ class Choice(tk.Canvas):
             width = int(self.popup.winfo_width())
         height = int(self.popup.winfo_height())
         canvas.delete("all")
-        rounded(canvas, 0, 0, width, height, 14, theme["card"], theme["border"])
+        # Keep the popup's unselected surface on the same color as the app
+        # background. A separate white card layer left a visible strip at its edge
+        # on the light theme.
+        rounded(canvas, 0, 0, width, height, 14, theme["bg"], theme["border"])
         row_height = 36
         for index, value in enumerate(self.values):
             top = 7 + index*row_height
@@ -280,7 +283,7 @@ class Choice(tk.Canvas):
             # This same-color rectangle provides a full-row hit target, including
             # the padding around the label. The selected rounded shape sits above it.
             canvas.create_rectangle(6, top, width-6, top+row_height,
-                                    fill=theme["card"], outline="", tags=(option_tag,))
+                                    fill=theme["bg"], outline="", tags=(option_tag,))
             first_item = len(canvas.find_all())
             rounded(canvas, 6, top+1, width-12, row_height-2, 9, theme["selected"])
             shape_items = canvas.find_all()[first_item:]
