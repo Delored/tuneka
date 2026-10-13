@@ -5,6 +5,7 @@ Tuneka is a desktop application for downloading YouTube music mixes, playlists, 
 ## Features
 
 - **Music by chapters:** Choose chapters and save them as individual MP3 files with embedded cover art.
+- **Multiple links:** Add several YouTube video links at once, combine their chapters into one selection, and process video downloads in sequence.
 - **Playlists:** Select the videos you want and download each as an MP3 or a video file.
 - **Single videos:** Choose a resolution and a container: MP4, MKV, or WebM.
 - **Download controls:** View progress, pause and resume, or cancel an active download.
@@ -37,6 +38,16 @@ python app.py
 Tuneka downloads `yt-dlp` from its [official GitHub releases](https://github.com/yt-dlp/yt-dlp/releases/latest) and FFmpeg from [imageio-binaries](https://github.com/imageio/imageio-binaries/tree/master/ffmpeg). Use **Update tools** in the app to download them again.
 
 Supported platforms: Windows x64 and ARM64, macOS x64 and Apple Silicon, and Linux x64 and ARM64.
+
+## Build a Debian package
+
+An experimental Debian package for amd64 can be built on Debian or Ubuntu with:
+
+```sh
+sh packaging/debian/build-deb.sh 0.1.0
+```
+
+The `.deb` is written to `dist/`. It uses the system Python and Tkinter packages; Tuneka continues to download its own `yt-dlp` and FFmpeg binaries on first launch and stores them in the user's data directory. See [`packaging/README.md`](packaging/README.md) for installation notes.
 
 ## Downloads and settings
 
