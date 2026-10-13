@@ -19,7 +19,7 @@ from pathlib import Path
 from tkinter import ttk
 from tkinter import font as tkfont
 from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa_rounded
-from i18n import UK_TO_EN, translate
+from i18n import UK_TO_EN, translate, translate_error
 
 ROOT = Path(__file__).resolve().parent
 APP_DATA_DIR = Path(os.environ.get("TUNEKA_DATA_DIR", ROOT)).expanduser()
@@ -2158,7 +2158,8 @@ class TunekaApp:
         icon_canvas.create_text(17, 17, text=icon, fill=badge_text, font=(FONT, 14, "bold"))
         tk.Label(header, text=self._tr(title), bg=theme["card"], fg=theme["ink"],
                  font=(FONT, 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
-        tk.Label(content, text=self._tr(message), bg=theme["card"], fg=theme["muted"],
+        localized_message = translate_error(self._tr(message), self.language)
+        tk.Label(content, text=localized_message, bg=theme["card"], fg=theme["muted"],
                  font=(FONT, 10), anchor="w", justify="left", wraplength=440).pack(fill="x")
         footer = tk.Frame(content, bg=theme["card"])
         footer.pack(fill="x", pady=(20, 0))
