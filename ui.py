@@ -98,6 +98,7 @@ class EmptyState(tk.Canvas):
         super().__init__(parent, highlightthickness=0, width=420, height=170)
         self.title, self.description = title, description
         self.theme = None
+        self.translate = lambda text: text
         self.bind("<Configure>", self._draw)
 
     def set_theme(self, theme):
@@ -111,8 +112,9 @@ class EmptyState(tk.Canvas):
         self.delete("all")
         t = self.theme
         w, h = self.winfo_width(), self.winfo_height()
+        title, description = self.translate(self.title), self.translate(self.description)
         if h < 100:
-            self.create_text(w/2, h/2, text=self.title, fill=t["muted"], font=(FONT, 9),
+            self.create_text(w/2, h/2, text=title, fill=t["muted"], font=(FONT, 9),
                              width=max(80, w-20), justify="center")
             return
         cy = max(22, h / 2 - 36)
@@ -121,10 +123,10 @@ class EmptyState(tk.Canvas):
             length = 5 + 29 * abs(math.sin(i*.72)) * math.sin(math.pi*(i+1)/24)
             self.create_line(x, cy-length/2, x, cy+length/2,
                              width=3, fill=t["accent"] if 7 <= i <= 15 else t["border"], capstyle="round")
-        self.create_text(w/2, cy+36, text=self.title, fill=t["ink"], font=(FONT, 12, "bold"),
+        self.create_text(w/2, cy+36, text=title, fill=t["ink"], font=(FONT, 12, "bold"),
                               width=max(100, w-32), justify="center")
         if h >= 135:
-            self.create_text(w/2, cy+64, text=self.description, fill=t["muted"],
+            self.create_text(w/2, cy+64, text=description, fill=t["muted"],
                              font=(FONT, 9), width=max(80, w-24), justify="center")
 
 
@@ -195,6 +197,7 @@ class Choice(tk.Canvas):
         super().__init__(parent, width=width*8+28, height=38, highlightthickness=0, takefocus=1)
         self.values = tuple(values)
         self.value = ""
+        self.translate = lambda text: text
         self.theme = None
         self.popup = None
         self._popup_index = 0
@@ -214,6 +217,11 @@ class Choice(tk.Canvas):
     def set(self, value):
         self.value = value
         self._draw()
+
+    def set_translator(self, translate):
+        self.translate = translate
+        self._draw()
+        self._draw_popup_rows()
 
     def _choose(self, value):
         self._close_popup()
@@ -292,7 +300,7 @@ class Choice(tk.Canvas):
                 canvas.addtag_withtag(option_tag, item)
             if not active:
                 canvas.itemconfigure(background_tag, state="hidden")
-            text_item = canvas.create_text(17, top+row_height/2, text=value, anchor="w",
+            text_item = canvas.create_text(17, top+row_height/2, text=self.translate(value), anchor="w",
                                fill=theme["selected_fg"] if active else theme["ink"],
                                font=(FONT, 10, "bold" if value == self.value else "normal"),
                                tags=("popup-row", option_tag, f"popup-text-{index}"))
@@ -352,5 +360,6 @@ class Choice(tk.Canvas):
         theme = self.theme
         width = self.winfo_width() if self.winfo_width() > 1 else int(self.cget("width"))
         rounded(self, 0, 0, width, 38, 14, theme["field"], theme["border"])
-        self.create_text(13, 19, text=self.value, anchor="w", fill=theme["ink"], font=(FONT, 10))
+        self.create_text(13, 19, text=self.translate(self.value), anchor="w",
+                         fill=theme["ink"], font=(FONT, 10))
         self.create_line(width-23, 17, width-19, 21, width-15, 17, fill=theme["muted"], width=1.5)
