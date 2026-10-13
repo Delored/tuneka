@@ -1180,9 +1180,9 @@ class TunekaApp:
         if self.default_playlist_output not in ("music", "video"):
             self.default_playlist_output = "music"
         self.default_playlist_music_format = preferences.get("default_playlist_music_format", "mp3")
-        self.language = preferences.get("language", "uk")
+        self.language = preferences.get("language", "en")
         if self.language not in ("uk", "en"):
-            self.language = "uk"
+            self.language = "en"
         self.applied_theme = "olive"
         self.last_output_dir: Path | None = None
         self.download_controller: DownloadController | None = None
@@ -1797,7 +1797,7 @@ class TunekaApp:
         widget.configure(text=text)
 
     def _apply_language(self, language, *, persist=True):
-        self.language = language if language in ("uk", "en") else "uk"
+        self.language = language if language in ("uk", "en") else "en"
         for widget in self._walk_widgets(self.root):
             if isinstance(widget, RoundedButton):
                 widget.translate = self._tr
@@ -2391,7 +2391,7 @@ class TunekaApp:
                 "default_video_resolution": settings.get("default_video_resolution", "best"),
                 "default_playlist_output": playlist_output,
                 "default_playlist_music_format": playlist_music_format,
-                "language": settings.get("language", "uk"),
+                "language": settings.get("language", "en"),
             }
         except (OSError, ValueError, AttributeError):
             return {}
@@ -2847,7 +2847,10 @@ class TunekaApp:
                         output_dir, created, missing_cover = retry_download_once_on_403(
                             lambda: split_video(
                                 source["url"], video, chapters, download_parent, item_progress,
-                                filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
+                                filename_prefix=(
+                                    f"{source_index + 1:02d} - "
+                                    if len(sources) > 1 and video.get("has_chapters") is False else ""
+                                ),
                                 control=control, audio_format=audio_format,
                             ), item_progress, control,
                         )

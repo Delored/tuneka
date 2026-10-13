@@ -73,7 +73,7 @@ jobs:
           retention-days: 14
 
   build-windows:
-    name: Build Windows portable ZIP (x64)
+    name: Build Windows packages (x64)
     needs: tests
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
     runs-on: windows-latest
@@ -87,15 +87,45 @@ jobs:
       - name: Install PyInstaller
         run: python -m pip install --upgrade pyinstaller
       - name: Build portable application
-        run: pyinstaller --noconfirm --clean --windowed --onedir --name Tuneka app.py
-      - name: Add documentation and create ZIP
+        run: pyinstaller --noconfirm --clean --windowed --onedir --name Tuneka --icon assets/tuneka.ico --add-data "assets/tuneka.png;assets" app.py
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Add documentation and build installer
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          Copy-Item README.md, LICENSE, assets/tuneka.ico -Destination dist/Tuneka/
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch") {
+            $version = $env:RELEASE_VERSION.TrimStart('v')
+          } else {
+            $version = "0.0.0-ci$env:GITHUB_RUN_NUMBER"
+          }
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            throw "Inno Setup compiler was not found at $compiler"
+          }
+          & $compiler "/DAppVersion=$version" packaging/windows/Tuneka.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE"
+          }
+          if ((Get-Item dist/Tuneka-Setup-x64.exe).Length -le 0) {
+            throw "The Windows installer is empty."
+          }
+      - name: Create portable ZIP
         shell: pwsh
         run: |
-          Copy-Item README.md, LICENSE -Destination dist/Tuneka/
           Compress-Archive -Path dist/Tuneka -DestinationPath dist/Tuneka-windows-x64.zip
           if ((Get-Item dist/Tuneka-windows-x64.zip).Length -le 0) {
             throw "The Windows portable ZIP is empty."
           }
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuneka-windows-x64-installer
+          path: dist/Tuneka-Setup-x64.exe
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload Windows portable ZIP
         uses: actions/upload-artifact@v4
         with:
@@ -128,7 +158,8 @@ jobs:
           test "${GITHUB_REF}" = "refs/heads/master"
           test "$(find dist -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 2
           test -s dist/Tuneka-windows-x64.zip
-          gh release create "$RELEASE_VERSION" dist/*.deb dist/*.zip \
+          test -s dist/Tuneka-Setup-x64.exe
+          gh release create "$RELEASE_VERSION" dist/*.deb dist/*.zip dist/*.exe \
             --target master \
             --title "Tuneka $RELEASE_VERSION" \
             --generate-notes
