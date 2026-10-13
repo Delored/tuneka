@@ -152,6 +152,21 @@ def valid_youtube_url(value: str) -> bool:
         return False
 
 
+def parse_youtube_urls(value: str) -> tuple[list[str], list[str]]:
+    """Read one or more YouTube links separated by whitespace, commas, or semicolons."""
+    urls, invalid, seen = [], [], set()
+    for item in re.split(r"[\s,;]+", value):
+        item = item.strip().rstrip(".,)")
+        if not item:
+            continue
+        if not valid_youtube_url(item):
+            invalid.append(item)
+        elif item not in seen:
+            urls.append(item)
+            seen.add(item)
+    return urls, invalid
+
+
 def run(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout, check=False, **hidden_console_kwargs())
 
@@ -493,7 +508,7 @@ def download_cover(url: str | None, target: Path) -> Path | None:
 
 def split_video(url: str, video: dict, selected: list[int], download_parent: Path, progress,
                 jobdir_override: Path | None = None, filename_prefix: str = "",
-                control: DownloadController | None = None) -> tuple[Path, list[Path], bool]:
+                control: DownloadController | None = None, number_tracks: bool = True) -> tuple[Path, list[Path], bool]:
     jobdir = jobdir_override or download_parent / safe_foldername(video["title"])
     jobdir.mkdir(parents=True, exist_ok=True)
     # Keep the downloaded source out of the user's output folder and always
@@ -562,7 +577,7 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
             if control:
                 control.check_cancelled()
             chapter = by_index[index]
-            chapter_prefix = f"{order:02d} - " if not filename_prefix else ""
+            chapter_prefix = f"{order:02d} - " if number_tracks else ""
             filename = f"{filename_prefix}{chapter_prefix}{safe_filename(chapter['title'])}.mp3"
             target = jobdir / filename
             progress(f"Нарізаю треки… {order}/{len(selected)}", 90 + int(10 * (order - 1) / max(1, len(selected))))
@@ -1086,7 +1101,7 @@ class TunekaApp:
         subtitle.pack(anchor="w", pady=(0, 16))
         self.compact_elements.append(subtitle)
 
-    def _source_card(self, parent, variable, button_text, command):
+    def _source_card(self, parent, variable, button_text, command, *, url_list_attr=None):
         card = RoundedCard(parent, bg="#111511", fill="#1b211c", padding=16, radius=24)
         card.pack(fill="x")
         caption = tk.Label(card.content, text="ПОСИЛАННЯ НА YOUTUBE", bg="#1b211c", fg="#9aa797",
@@ -1099,19 +1114,101 @@ class TunekaApp:
 
         button = RoundedButton(row, text=button_text, command=command, variant="primary", height=40, bg="#1b211c")
         button.pack(side="right")
-        paste = RoundedButton(row, text="Вставити", command=lambda: self._paste_url(variable, entry),
-                              variant="secondary", height=40, bg="#1b211c")
-        paste.pack(side="right", padx=(0, 8))
+        multi = None
+        if url_list_attr:
+            multi = RoundedButton(
+                row, text="Додати кілька…",
+                command=lambda: self._edit_url_list(variable, entry, url_list_attr, multi),
+                variant="secondary", height=40, bg="#1b211c",
+            )
+            multi.pack(side="right", padx=(0, 8))
         entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         entry.entry.bind("<Return>", lambda _event: command())
-        return card, entry, button
+        return card, entry, button, multi
 
-    def _paste_url(self, variable, entry):
-        try:
-            variable.set(self.root.clipboard_get().strip())
+    def _edit_url_list(self, variable, entry, list_attr, button):
+        theme = THEMES[self.theme_name]
+        existing = getattr(self, list_attr, None) or ([variable.get().strip()] if variable.get().strip() else [])
+        dialog = tk.Toplevel(self.root)
+        dialog.title(self._tr("Кілька посилань"))
+        dialog.configure(bg=theme["bg"])
+        dialog.transient(self.root)
+        dialog.resizable(True, True)
+        dialog.minsize(520, 400)
+        card = RoundedCard(dialog, bg=theme["bg"], fill=theme["card"], padding=20, radius=22,
+                           expand_content=True)
+        card.border = theme["border"]
+        card.pack(fill="both", expand=True, padx=12, pady=12)
+        content = card.content
+        tk.Label(content, text=self._tr("Додай посилання на YouTube"), bg=theme["card"], fg=theme["ink"],
+                 font=(FONT, 16, "bold"), anchor="w").pack(fill="x")
+        tk.Label(content, text=self._tr("Встав одне посилання на рядок. Повтори не додаватимуться."),
+                 bg=theme["card"], fg=theme["muted"], font=(FONT, 10), anchor="w",
+                 wraplength=560, justify="left").pack(fill="x", pady=(6, 12))
+        text_frame = RoundedCard(content, bg=theme["card"], fill=theme["field"], padding=8, radius=16,
+                                 expand_content=True)
+        text_frame.border = theme["border"]
+        text_frame.pack(fill="both", expand=True)
+        text = tk.Text(text_frame.content, wrap="word", undo=True, relief="flat", bd=0,
+                       bg=theme["field"], fg=theme["ink"], insertbackground=theme["ink"],
+                       selectbackground=theme["entry_select"], font=(FONT, 11), padx=8, pady=8)
+        scrollbar = ttk.Scrollbar(text_frame.content, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scrollbar.set)
+        text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y", padx=(5, 0))
+        text.insert("1.0", "\n".join(existing))
+        feedback = tk.Label(content, text="", bg=theme["card"], fg="#f07888", font=(FONT, 9), anchor="w")
+        feedback.pack(fill="x", pady=(8, 0))
+        footer = tk.Frame(content, bg=theme["card"])
+        footer.pack(fill="x", pady=(12, 0))
+        result = {"urls": None}
+
+        def cancel():
+            dialog.destroy()
+
+        def apply():
+            urls, invalid = parse_youtube_urls(text.get("1.0", "end-1c"))
+            if invalid:
+                feedback.configure(text=self._tr("Не схожі на посилання YouTube:") + " " + ", ".join(invalid[:3]))
+                return
+            if not urls:
+                feedback.configure(text=self._tr("Додай хоча б одне посилання."))
+                return
+            result["urls"] = urls
+            setattr(self, list_attr, [])
+            variable.set(urls[0])
+            if list_attr == "music_urls":
+                self._music_url_changed()
+            elif list_attr == "video_urls":
+                self._video_url_changed()
+            setattr(self, list_attr, urls if len(urls) > 1 else [])
+            button.set_text(f"Посилань: {len(urls)}" if len(urls) > 1 else "Додати кілька…")
             entry.entry.focus_set()
-        except tk.TclError:
-            self._set_status("Буфер обміну порожній. Скопіюй посилання з YouTube.")
+            dialog.destroy()
+
+        RoundedButton(footer, text=self._tr("Скасувати"), command=cancel, variant="secondary", height=38,
+                      bg=theme["card"]).pack(side="right")
+        RoundedButton(footer, text=self._tr("Додати"), command=apply, variant="primary", height=38,
+                      bg=theme["card"]).pack(side="right", padx=(0, 8))
+        dialog.bind("<Control-Return>", lambda _event: apply())
+        dialog.bind("<Escape>", lambda _event: cancel())
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        dialog.geometry(f"660x500+{self.root.winfo_rootx()+max(0, (self.root.winfo_width()-660)//2)}"
+                        f"+{self.root.winfo_rooty()+max(0, (self.root.winfo_height()-500)//2)}")
+        dialog.grab_set()
+        text.focus_set()
+        self.root.wait_window(dialog)
+        return result["urls"]
+
+    def _source_urls(self, variable, list_attr):
+        current = variable.get().strip()
+        saved = getattr(self, list_attr, [])
+        if saved and saved[0] == current:
+            return list(saved)
+        urls, invalid = parse_youtube_urls(current)
+        if invalid or not urls:
+            return []
+        return urls
 
     def _make_table(self, parent, columns, headings, widths):
         card = RoundedCard(parent, bg="#111511", fill="#1b211c", padding=12, radius=24, expand_content=True)
@@ -1143,9 +1240,12 @@ class TunekaApp:
         self._page_intro(page, "Твій наступний плейлист.",
                          "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.")
         self.url = tk.StringVar(value="")
+        self.music_urls = []
+        self.music_sources = []
+        self.track_sources = {}
         self.url.trace_add("write", self._music_url_changed)
-        _, self.url_entry, self.find_button = self._source_card(page, self.url, "Знайти розділи  →",
-                                                                self._find_chapters)
+        _, self.url_entry, self.find_button, self.music_multi_button = self._source_card(
+            page, self.url, "Обробити  →", self._find_chapters, url_list_attr="music_urls")
         row = tk.Frame(page, bg="#111511")
         row.pack(fill="x", pady=(17, 8))
         self.video_label = tk.Label(row, text="Треки", bg="#111511", fg="#f0f4ed",
@@ -1170,7 +1270,7 @@ class TunekaApp:
         self.playlist_url = tk.StringVar(value="")
         self.playlist = None
         self.playlist_url.trace_add("write", self._playlist_url_changed)
-        _, self.playlist_url_entry, self.playlist_find_button = self._source_card(
+        _, self.playlist_url_entry, self.playlist_find_button, _ = self._source_card(
             page, self.playlist_url, "Знайти відео  →", self._find_playlist)
         self.playlist_controls_card = RoundedCard(page, bg="#111511", fill="#1b211c", padding=14, radius=18)
         self.playlist_controls_card.pack(fill="x", pady=(12, 0))
@@ -1229,9 +1329,11 @@ class TunekaApp:
                          "Обери якість і формат. Дивись улюблене, коли зручно.")
         self.video_url = tk.StringVar(value="")
         self.video_info = None
+        self.video_urls = []
+        self.video_batch_info = []
         self.video_url.trace_add("write", self._video_url_changed)
-        _, self.video_url_entry, self.video_check_button = self._source_card(
-            page, self.video_url, "Перевірити посилання", self._prepare_video)
+        _, self.video_url_entry, self.video_check_button, self.video_multi_button = self._source_card(
+            page, self.video_url, "Перевірити посилання", self._prepare_video, url_list_attr="video_urls")
         settings = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=20)
         settings.pack(fill="x", pady=(14, 0))
         self.video_resolution, self.video_format = self._build_video_options(settings.content, "ВІДЕО")
@@ -1390,7 +1492,13 @@ class TunekaApp:
         self._apply_language(self.options_language.get())
 
     def _music_url_changed(self, *_):
+        if getattr(self, "music_urls", []) and self.url.get().strip() != self.music_urls[0]:
+            self.music_urls = []
+            if hasattr(self, "music_multi_button"):
+                self.music_multi_button.set_text("Додати кілька…")
         self.video = None
+        self.music_sources = []
+        self.track_sources = {}
         self._set_label(self.video_label, "Треки")
         self._set_label(self.chapter_count, "MP3 · з обкладинкою")
         for item in self.tree.get_children():
@@ -1408,7 +1516,14 @@ class TunekaApp:
         self.playlist_download_button.set_state("disabled")
 
     def _video_url_changed(self, *_):
+        if getattr(self, "video_urls", []) and self.video_url.get().strip() != self.video_urls[0]:
+            self.video_urls = []
+            if hasattr(self, "video_multi_button"):
+                self.video_multi_button.set_text("Додати кілька…")
         self.video_info = None
+        self.video_batch_info = []
+        self.video_batch_failures = []
+        self.video_info_urls = []
         self.video_preview.title = "Місце для твого наступного відео"
         self.video_preview.description = "Перевір посилання, щоб побачити назву й тривалість."
         self.video_preview._draw()
@@ -1554,7 +1669,7 @@ class TunekaApp:
                     _, tracks, missing_cover = split_video(
                         entry["url"], single_track, [0], output_dir, item_progress,
                         jobdir_override=output_dir, filename_prefix=f"{position:02d} - ",
-                        control=control,
+                        control=control, number_tracks=False,
                     )
                     completed.extend(tracks)
                     cover_warning = cover_warning or missing_cover
@@ -1599,77 +1714,145 @@ class TunekaApp:
         self._show_dialog("Помилка завантаження плейлиста", error, "error")
 
     def _prepare_video(self):
-        url = self.video_url.get().strip()
-        if not valid_youtube_url(url):
+        urls = self._source_urls(self.video_url, "video_urls")
+        if not urls:
             self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube відео.", "warning")
             return
         if self.busy:
             return
         self.busy = True
         self.video_download_button.set_state("disabled")
+        self.video_check_button.set_state("disabled")
         self._set_status("Перевіряю відео…", 0)
         def worker():
+            videos, failures = [], []
             try:
-                video = info_for(url)
-                self.root.after(0, lambda: self._video_ready(video, url))
+                for position, url in enumerate(urls, 1):
+                    try:
+                        self._thread_progress(f"Перевіряю відео {position}/{len(urls)}…", 0)
+                        videos.append({"url": url, "video": info_for(url)})
+                    except Exception as exc:
+                        failures.append(f"{url}: {str(exc).strip()[-240:]}")
+                if not videos:
+                    raise RuntimeError("Жодне відео не вдалося прочитати.\n\n" + "\n".join(failures[:5]))
+                self.root.after(0, lambda: self._videos_ready(videos, urls, failures))
             except Exception as exc:
                 self.root.after(0, lambda error=str(exc): self._video_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
     def _video_ready(self, video, url):
+        self._videos_ready([{"url": url, "video": video}], [url])
+
+    def _videos_ready(self, videos, requested_urls, failures=None):
         self.busy = False
-        if self.video_url.get().strip() != url:
+        if self._source_urls(self.video_url, "video_urls") != requested_urls:
             self.video_check_button.set_state("normal")
             return
-        self.video_info = video
-        self.video_info_url = url
-        self.video_preview.title = video["title"]
-        self.video_preview.description = (
-            f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  {self._tr('Готове до завантаження')}"
-        )
+        failures = failures or []
+        self.video_batch_info = videos
+        self.video_info = videos[0]["video"] if videos else None
+        self.video_info_url = requested_urls[0] if requested_urls else None
+        self.video_info_urls = list(requested_urls)
+        if len(videos) == 1:
+            video = videos[0]["video"]
+            self.video_preview.title = video["title"]
+            self.video_preview.description = (
+                f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  {self._tr('Готове до завантаження')}"
+            )
+        else:
+            self.video_preview.title = f"{len(videos)} відео готові до завантаження"
+            self.video_preview.description = self._tr("Відеофайли буде завантажено послідовно у вибраній якості.")
+        if failures:
+            self.video_preview.description += f" {self._tr('Не вдалося перевірити:')} {len(failures)}."
         self.video_preview._draw()
+        self.video_check_button.set_state("normal")
         self.video_download_button.set_state("normal")
-        self._set_status(f"Готово до завантаження: {video['title']}", 0)
+        self.video_batch_failures = failures
+        self._set_status(f"Готово до завантаження: {len(videos)} відео.", 0)
+        if failures:
+            self._show_dialog("Частину посилань не вдалося прочитати", "\n\n".join(failures[:5]), "warning")
 
     def _video_failed(self, error):
         self.busy = False
+        self.video_check_button.set_state("normal")
         self.video_download_button.set_state("disabled")
         self._set_status("Не вдалося прочитати відео.", 0)
         self._show_dialog("Не вдалося прочитати відео", error, "error")
 
     def _download_video(self):
-        url = self.video_url.get().strip()
-        if not valid_youtube_url(url):
+        urls = self._source_urls(self.video_url, "video_urls")
+        if not urls:
             self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube відео.", "warning")
             return
         if self.busy:
             return
-        if not getattr(self, "video_info", None) or getattr(self, "video_info_url", None) != url:
+        videos = self.video_batch_info
+        if (not videos or self.video_info_urls != urls
+                or self.video_info_url != urls[0]):
             self._prepare_video()
             return
-        video = self.video_info
-        output_dir = self.download_parent / safe_foldername(video["title"])
         resolution, container = self.video_resolution.get(), self.video_format.get().lower()
+        download_parent = self.download_parent
         self.busy = True
+        self.video_check_button.set_state("disabled")
         self.video_download_button.set_state("disabled")
         control = self._begin_download_controls()
-        self._set_status("Завантажую відео…", 0)
+        self._set_status(f"Готую завантаження {len(videos)} відео…", 0)
         self.progress.start_indeterminate()
         def worker():
             try:
-                path = download_video_file(url, video["title"], output_dir, self._thread_progress,
-                                           resolution=resolution, container=container, control=control)
-                self.root.after(0, lambda: self._video_download_done(path))
+                paths, failures = [], list(getattr(self, "video_batch_failures", []))
+                for position, item in enumerate(videos, 1):
+                    control.check_cancelled()
+                    video, url = item["video"], item["url"]
+                    output_dir = download_parent / safe_foldername(video["title"])
+                    def item_progress(text, value, position=position, title=video["title"]):
+                        overall = int(((position - 1) + max(0, min(value, 100)) / 100) * 100 / len(videos))
+                        self._thread_progress(f"{position}/{len(videos)} · {title} — {text}", overall)
+                    try:
+                        path = download_video_file(
+                            url, video["title"], output_dir, item_progress,
+                            resolution=resolution, container=container,
+                            prefix=f"{position:02d} - " if len(videos) > 1 else "", control=control,
+                        )
+                        paths.append(path)
+                    except DownloadCancelled:
+                        raise
+                    except Exception as exc:
+                        failures.append(f"{video['title']}: {str(exc).strip()[-300:]}")
+                if not paths:
+                    raise RuntimeError("Не вдалося завантажити відео.\n\n" + "\n".join(failures[:5]))
+                if len(videos) == 1 and len(paths) == 1 and not failures:
+                    self.root.after(0, lambda: self._video_download_done(paths[0]))
+                else:
+                    self.root.after(0, lambda: self._videos_download_done(paths, failures))
             except DownloadCancelled:
                 self.root.after(0, self._download_cancelled)
             except Exception as exc:
                 self.root.after(0, lambda error=str(exc): self._video_download_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
+    def _videos_download_done(self, paths, failures):
+        self.busy = False
+        self._finish_download_controls()
+        self.last_output_dir = paths[0].parent if len(paths) == 1 else self.download_parent
+        self.video_check_button.set_state("normal")
+        self.video_download_button.set_state("normal")
+        summary = self._tr(f"Збережено відео: {len(paths)}.")
+        if failures:
+            summary += " " + self._tr(f"Не вдалося обробити: {len(failures)}.")
+        summary += f"\n\n{self._tr('Тека:')}: {self.last_output_dir}"
+        if failures:
+            summary += "\n\n" + "\n".join(failures[:5])
+        self._set_status(f"Збережено відео: {len(paths)}.", 100)
+        self._show_dialog("Завантаження відео завершено", summary,
+                          "warning" if failures else "success")
+
     def _video_download_done(self, path):
         self.busy = False
         self._finish_download_controls()
         self.last_output_dir = path.parent
+        self.video_check_button.set_state("normal")
         self.video_download_button.set_state("normal")
         self._set_status(f"Відео збережено: {path}", 100)
         self._show_dialog("Відео завантажено", f"Файл збережено:\n{path}", "success")
@@ -1677,6 +1860,7 @@ class TunekaApp:
     def _video_download_failed(self, error):
         self.busy = False
         self._finish_download_controls()
+        self.video_check_button.set_state("normal")
         self.video_download_button.set_state("normal")
         self._set_status("Не вдалося завантажити відео.", 0)
         self._show_dialog("Помилка завантаження відео", error, "error")
@@ -2141,53 +2325,92 @@ class TunekaApp:
             self.video_download_button.set_state("normal" if getattr(self, "video_info", None) else "disabled")
 
     def _find_chapters(self):
-        url = self.url.get().strip()
-        if not valid_youtube_url(url):
+        urls = self._source_urls(self.url, "music_urls")
+        if not urls:
             self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube.", "warning")
             return
         if self.busy:
             return
         self.busy = True
+        self.find_button.set_text("Обробка…")
         self.find_button.set_state("disabled")
         self.download_button.set_state("disabled")
         self._set_status("Читаю розділи відео…", 0)
         def worker():
+            sources, failures = [], []
             try:
-                video = info_for(url)
-                self.root.after(0, lambda: self._show_video(video, url))
+                for position, url in enumerate(urls, 1):
+                    try:
+                        self._thread_progress(f"Читаю відео {position}/{len(urls)}…", 0)
+                        sources.append({"url": url, "video": info_for(url)})
+                    except Exception as exc:
+                        failures.append(f"{url}: {str(exc).strip()[-240:]}")
+                if not sources:
+                    raise RuntimeError("Жодне відео не вдалося прочитати.\n\n" + "\n".join(failures[:5]))
+                self.root.after(0, lambda: self._show_videos(sources, urls, failures))
             except Exception as exc:
                 self.root.after(0, lambda error=str(exc): self._info_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_video(self, video: dict, url: str):
+        self._show_videos([{"url": url, "video": video}], [url])
+
+    def _show_videos(self, sources: list[dict], requested_urls: list[str], failures=None):
         self.busy = False
-        if self.url.get().strip() != url:
+        if self._source_urls(self.url, "music_urls") != requested_urls:
+            self.find_button.set_text("Обробити  →")
             self.find_button.set_state("normal")
             return
-        self.video = video
+        failures = failures or []
+        self.music_sources = sources
+        self.video = sources[0]["video"] if sources else None
+        self.track_sources = {}
+        self.find_button.set_text("Обробити  →")
         self.find_button.set_state("normal")
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for chapter in video["chapters"]:
-            start = int(chapter["start"])
-            self.tree.insert("", "end", iid=str(chapter["index"]), values=(chapter["title"], f"{start // 60:02}:{start % 60:02}"))
+        row_id = 0
+        for source_index, source in enumerate(sources):
+            video = source["video"]
+            for chapter in video["chapters"]:
+                start = int(chapter["start"])
+                title = chapter["title"]
+                if len(sources) > 1:
+                    title = f"{video['title']} · {title}"
+                self.track_sources[str(row_id)] = {"source": source_index, "chapter": chapter["index"]}
+                self.tree.insert("", "end", iid=str(row_id),
+                                 values=(title, f"{start // 60:02}:{start % 60:02}"))
+                row_id += 1
         self.tree.selection_set(self.tree.get_children())
-        self._set_dynamic_label(self.video_label, video["title"])
-        chapter_total = len(video["chapters"])
-        if chapter_total % 10 == 1 and chapter_total % 100 != 11:
-            chapter_word = "РОЗДІЛ"
-        elif 2 <= chapter_total % 10 <= 4 and not 12 <= chapter_total % 100 <= 14:
-            chapter_word = "РОЗДІЛИ"
+        chapter_total = row_id
+        if len(sources) > 1:
+            self._set_label(self.video_label, f"{len(sources)} відео")
+            self._set_label(self.chapter_count, f"{chapter_total} треків")
         else:
-            chapter_word = "РОЗДІЛІВ"
-        self._set_label(self.chapter_count, f"{chapter_total} {chapter_word}")
+            self._set_dynamic_label(self.video_label, sources[0]["video"]["title"])
+            if chapter_total % 10 == 1 and chapter_total % 100 != 11:
+                chapter_word = "РОЗДІЛ"
+            elif 2 <= chapter_total % 10 <= 4 and not 12 <= chapter_total % 100 <= 14:
+                chapter_word = "РОЗДІЛИ"
+            else:
+                chapter_word = "РОЗДІЛІВ"
+            self._set_label(self.chapter_count, f"{chapter_total} {chapter_word}")
         self.select_button.set_state("normal")
         self.select_button.set_text("Зняти вибір")
         self.download_button.set_state("normal")
-        self._set_status("Вибери треки й натисни «Завантажити вибрані MP3».", 0)
+        if len(sources) == 1 and not failures:
+            message = "Вибери треки й натисни «Завантажити вибрані MP3»."
+        else:
+            message = f"Знайдено {chapter_total} треків у {len(sources)} відео. Вибери потрібні й завантаж."
+            if failures:
+                message += f" Не вдалося прочитати: {len(failures)}."
+        self._set_status(message, 0)
+        if failures:
+            self._show_dialog("Частину посилань не вдалося прочитати", "\n\n".join(failures[:5]), "warning")
 
     def _info_failed(self, error: str):
         self.busy = False
+        self.find_button.set_text("Обробити  →")
         self.find_button.set_state("normal")
         self._set_status("Не вдалося прочитати відео.", 0)
         self._show_dialog("Не вдалося прочитати відео", error, "error")
@@ -2204,37 +2427,72 @@ class TunekaApp:
     def _download(self):
         if not self.video or self.busy:
             return
-        selected = sorted(int(item) for item in self.tree.selection())
-        if not selected:
+        selected_rows = sorted(self.tree.selection(), key=self.tree.index)
+        if not selected_rows:
             self._show_dialog("Не вибрано треки", "Вибери хоча б один розділ.", "warning")
             return
+        grouped = {}
+        for row_id in selected_rows:
+            row = self.track_sources.get(row_id)
+            if row:
+                grouped.setdefault(row["source"], []).append(row["chapter"])
+        sources = self.music_sources or [{"url": self.url.get().strip(), "video": self.video}]
         self.busy = True
         self.find_button.set_state("disabled")
         self.download_button.set_state("disabled")
-        url, video, download_parent = self.url.get().strip(), self.video, self.download_parent
+        download_parent = self.download_parent
         control = self._begin_download_controls()
         def worker():
+            tracks, failures, cover_warning, output_dirs = [], [], False, []
+            total_tracks = sum(len(chapters) for chapters in grouped.values())
+            completed_tracks = 0
             try:
-                output_dir, tracks, cover_warning = split_video(
-                    url, video, selected, download_parent, self._thread_progress, control=control,
-                )
-                self.root.after(0, lambda: self._download_done(output_dir, tracks, cover_warning))
+                for position, (source_index, chapters) in enumerate(grouped.items(), 1):
+                    control.check_cancelled()
+                    source = sources[source_index]
+                    video = source["video"]
+                    def item_progress(text, value, position=completed_tracks, count=len(chapters)):
+                        overall = int((position + max(0, min(value, 100)) * count / 100) * 100 / total_tracks)
+                        self._thread_progress(f"{position}/{len(grouped)} · {text}", overall)
+                    try:
+                        output_dir, created, missing_cover = split_video(
+                            source["url"], video, chapters, download_parent, item_progress,
+                            filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
+                            control=control,
+                        )
+                        output_dirs.append(output_dir)
+                        tracks.extend(created)
+                        cover_warning = cover_warning or missing_cover
+                    except DownloadCancelled:
+                        raise
+                    except Exception as exc:
+                        failures.append(f"{video['title']}: {str(exc).strip()[-300:]}")
+                    completed_tracks += len(chapters)
+                if not tracks:
+                    raise RuntimeError("Не вдалося завантажити вибрані треки.\n\n" + "\n".join(failures[:5]))
+                output_dir = output_dirs[0] if len(output_dirs) == 1 else download_parent
+                self.root.after(0, lambda: self._download_done(output_dir, tracks, cover_warning, failures))
             except DownloadCancelled:
                 self.root.after(0, self._download_cancelled)
             except Exception as exc:
                 self.root.after(0, lambda error=str(exc): self._download_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _download_done(self, output_dir: Path, tracks: list[Path], cover_warning: bool):
+    def _download_done(self, output_dir: Path, tracks: list[Path], cover_warning: bool, failures=None):
+        failures = failures or []
         self.busy = False
         self._finish_download_controls()
         self.last_output_dir = output_dir
         self.find_button.set_state("normal")
         self.download_button.set_state("normal")
         note = " Деякі обкладинки не вдалося вбудувати." if cover_warning else " Обкладинку відео додано до треків."
+        if failures:
+            note += f" Не вдалося обробити відео: {len(failures)}."
         self._set_status(f"Збережено {len(tracks)} MP3 у {output_dir}.{note}", 100)
+        detail = "\n\n" + "\n".join(failures[:5]) if failures else ""
         self._show_dialog("Завантаження завершено",
-                          f"Створено {len(tracks)} треків.{note}\n\nТека: {output_dir}", "success")
+                          f"Створено {len(tracks)} треків.{note}{detail}\n\nТека: {output_dir}",
+                          "warning" if failures or cover_warning else "success")
 
     def _download_failed(self, error: str):
         self.busy = False

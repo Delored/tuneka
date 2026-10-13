@@ -12,9 +12,10 @@ UK_TO_EN = {
     "Змінити…": "Change…", "ЗБЕРЕГТИ В": "SAVE TO",
     "Пауза": "Pause", "Продовжити": "Resume", "Скасувати": "Cancel",
     "Відкрити теку  ↗": "Open folder  ↗",
-    "Відкрити теку": "Open folder", "Вставити": "Paste",
+    "Відкрити теку": "Open folder",
     "ПОСИЛАННЯ НА YOUTUBE": "YOUTUBE LINK",
-    "Знайти розділи  →": "Find chapters  →",
+    "Обробити  →": "Process  →",
+    "Обробка…": "Processing…",
     "Знайти відео  →": "Find videos  →",
     "Перевірити посилання  →": "Check link  →",
     "Зняти вибір": "Clear selection", "Завантажити MP3": "Download MP3",
@@ -41,6 +42,17 @@ UK_TO_EN = {
     "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.":
         "A YouTube mix becomes separate MP3 files with titles and cover art. No chapters? One track.",
     "Відео, яке лишається з тобою.": "Video that stays with you.",
+    "Додати кілька…": "Add multiple…",
+    "Додати": "Add",
+    "Кілька посилань": "Multiple links",
+    "Додай посилання на YouTube": "Add YouTube links",
+    "Встав одне посилання на рядок. Повтори не додаватимуться.":
+        "Paste one link per line. Duplicates are ignored.",
+    "Не схожі на посилання YouTube:": "These do not look like YouTube links:",
+    "Додай хоча б одне посилання.": "Add at least one link.",
+    "Відеофайли буде завантажено послідовно у вибраній якості.":
+        "Videos will be downloaded one by one at the selected quality.",
+    "Не вдалося перевірити:": "Could not check:",
     "Обери якість і формат. Дивись улюблене, коли зручно.":
         "Choose the quality and format. Watch your favorites whenever you like.",
     "Встав посилання на відео з розділами — отримай окремі MP3. Якщо розділів немає, відео стане одним треком.":
@@ -87,6 +99,8 @@ UK_TO_EN = {
     "Не вдалося завантажити плейлист.": "Could not download the playlist.",
     "Завантаження плейлиста завершено": "Playlist download complete",
     "Завантаження завершено": "Download complete",
+    "Завантаження відео завершено": "Video downloads complete",
+    "Частину посилань не вдалося прочитати": "Some links could not be read",
     "Помилка завантаження плейлиста": "Playlist download error",
     "Перевіряю відео…": "Checking video…",
     "Готово до завантаження:": "Ready to download:",
@@ -97,8 +111,6 @@ UK_TO_EN = {
     "Продовжую завантаження…": "Resuming download…",
     "Скасовую завантаження…": "Cancelling download…",
     "Читаю розділи відео…": "Reading video chapters…",
-    "Буфер обміну порожній. Скопіюй посилання з YouTube.":
-        "The clipboard is empty. Copy a YouTube link first.",
     "Оновлюю бінарники…": "Updating tools…",
     "Не вибрано треки": "No tracks selected",
     "Вибери хоча б один розділ.": "Select at least one chapter.",
@@ -145,8 +157,6 @@ UK_TO_EN = {
     "Готово до завантаження:": "Ready to download:",
     "Вибери треки й натисни «Завантажити вибрані MP3».":
         "Select tracks and click ‘Download selected MP3’.",
-    "Буфер обміну порожній. Скопіюй посилання з YouTube.":
-        "The clipboard is empty. Copy a YouTube link first.",
     "Завантажую відео…": "Downloading video…",
     "Завантажую аудіо з YouTube…": "Downloading audio from YouTube…",
     "Перевіряю інструменти…": "Checking tools…",
@@ -188,6 +198,47 @@ def translate(text, language="uk"):
     if match:
         count = int(match.group(1))
         return f"{count} video" if count == 1 else f"{count} videos"
+    match = re.fullmatch(r"Посилань: (\d+)", text)
+    if match:
+        return f"Links: {match.group(1)}"
+    match = re.fullmatch(r"(\d+) треків", text)
+    if match:
+        return f"{match.group(1)} tracks"
+    match = re.fullmatch(r"(\d+) відео", text)
+    if match:
+        count = int(match.group(1))
+        return f"{count} video" if count == 1 else f"{count} videos"
+    match = re.fullmatch(r"(\d+) відео готові до завантаження", text)
+    if match:
+        return f"{match.group(1)} videos ready to download"
+    match = re.fullmatch(r"Готово до завантаження: (\d+) відео\.", text)
+    if match:
+        return f"Ready to download: {match.group(1)} videos."
+    match = re.fullmatch(r"Готую завантаження (\d+) відео…", text)
+    if match:
+        return f"Preparing {match.group(1)} videos for download…"
+    match = re.fullmatch(r"Збережено відео: (\d+)\.", text)
+    if match:
+        return f"Saved {match.group(1)} videos."
+    match = re.fullmatch(r"(Читаю|Перевіряю) відео (\d+)/(\d+)…", text)
+    if match:
+        action = "Reading" if match.group(1) == "Читаю" else "Checking"
+        return f"{action} video {match.group(2)}/{match.group(3)}…"
+    match = re.fullmatch(r"Не вдалося завантажити: (\d+)\.", text)
+    if match:
+        return f"Could not download: {match.group(1)}."
+    match = re.fullmatch(r"Не вдалося обробити: (\d+)\.", text)
+    if match:
+        return f"Could not process: {match.group(1)}."
+    match = re.fullmatch(r"Знайдено (\d+) треків у (\d+) відео\. Вибери потрібні й завантаж\.(?: Не вдалося прочитати: (\d+)\.)?", text)
+    if match:
+        result = f"Found {match.group(1)} tracks in {match.group(2)} videos. Select tracks to download."
+        if match.group(3):
+            result += f" Could not read: {match.group(3)}."
+        return result
+    match = re.fullmatch(r"(\d+)/(\d+) · (.+)", text)
+    if match:
+        return f"{match.group(1)}/{match.group(2)} · {match.group(3)}"
     match = re.fullmatch(r"(\d+) (РОЗДІЛ|РОЗДІЛИ|РОЗДІЛІВ)", text)
     if match:
         count = int(match.group(1))

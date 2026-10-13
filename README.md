@@ -5,6 +5,7 @@ Tuneka is a desktop application for downloading YouTube music mixes, playlists, 
 ## Features
 
 - **Music by chapters:** Choose chapters and save them as individual MP3 files with embedded cover art.
+- **Multiple links:** Add several YouTube video links at once, combine their chapters into one selection, and process video downloads in sequence.
 - **Playlists:** Select the videos you want and download each as an MP3 or a video file.
 - **Single videos:** Choose a resolution and a container: MP4, MKV, or WebM.
 - **Download controls:** View progress, pause and resume, or cancel an active download.
