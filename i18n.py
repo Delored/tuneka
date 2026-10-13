@@ -189,7 +189,7 @@ UK_TO_EN = {
 # lines (such as yt-dlp or ffmpeg diagnostics) are kept verbatim for debugging.
 ERROR_TO_EN = {
     "Завантаження перенаправлено на недозволене джерело.":
-        "The download was redirected to an untrusted host.",
+        "The download was redirected to an untrusted source.",
     "GitHub API перенаправив запит на неочікуваний хост.":
         "The GitHub API request was redirected to an unexpected host.",
     "GitHub повернув неочікувані метадані релізу yt-dlp.":

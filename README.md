@@ -41,13 +41,22 @@ Supported platforms: Windows x64 and ARM64, macOS x64 and Apple Silicon, and Lin
 
 ## Build a Debian package
 
-An experimental Debian package for amd64 can be built on Debian or Ubuntu with:
+Experimental Debian packages for amd64 and arm64 can be built on matching Debian or Ubuntu systems with:
 
 ```sh
 sh packaging/debian/build-deb.sh 0.1.0
 ```
 
-The `.deb` is written to `dist/`. It uses the system Python and Tkinter packages; Tuneka continues to download its own `yt-dlp` and FFmpeg binaries on first launch and stores them in the user's data directory. See [`packaging/README.md`](packaging/README.md) for installation notes.
+The architecture-specific `.deb` is written to `dist/`. It uses the system Python and Tkinter packages; Tuneka continues to download its own `yt-dlp` and FFmpeg binaries on first launch and stores them in the user's data directory. See [`packaging/README.md`](packaging/README.md) for installation notes.
+
+## Tests
+
+Run the test suite on Debian or Ubuntu with Tkinter and a virtual display installed:
+
+```sh
+sudo apt install python3-tk xvfb
+xvfb-run --auto-servernum python3 -m unittest discover --start-directory tests --pattern 'test_*.py' --verbose
+```
 
 ## Downloads and settings
 
