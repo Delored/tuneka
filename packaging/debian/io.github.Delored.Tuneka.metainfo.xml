@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.Delored.Tuneka</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>Tuneka</name>
+  <summary>Download and split YouTube music, playlists, and videos</summary>
+  <description>
+    <p>Download music mixes, playlists, and videos. Tuneka can split chaptered mixes into separately named MP3 tracks with cover art.</p>
+  </description>
+  <developer id="io.github.Delored">
+    <name>Delored</name>
+  </developer>
+  <launchable type="desktop-id">io.github.Delored.Tuneka.desktop</launchable>
+  <url type="homepage">https://github.com/Delored/Tuneka</url>
+  <content_rating type="oars-1.1"/>
+  <provides>
+    <binary>tuneka</binary>
+  </provides>
+</component>

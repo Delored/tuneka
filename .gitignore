@@ -6,3 +6,5 @@ resources/bin/*
 !resources/bin/.gitkeep
 downloads/*
 !downloads/.gitkeep
+/build/
+/dist/

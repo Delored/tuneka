@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Tuneka
+GenericName=YouTube media downloader
+Comment=Download and split YouTube music, playlists, and videos
+Exec=tuneka
+Icon=io.github.Delored.Tuneka
+Terminal=false
+Categories=AudioVideo;Audio;Video;Network;
+Keywords=YouTube;music;playlist;video;MP3;split;chapters;
+StartupNotify=true

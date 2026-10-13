@@ -21,11 +21,12 @@ from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa
 from i18n import UK_TO_EN, translate
 
 ROOT = Path(__file__).resolve().parent
-RESOURCES = ROOT / "resources"
+APP_DATA_DIR = Path(os.environ.get("TUNEKA_DATA_DIR", ROOT)).expanduser()
+RESOURCES = APP_DATA_DIR / "resources"
 BIN_DIR = RESOURCES / "bin"
-DOWNLOADS = ROOT / "downloads"
-SETTINGS_PATH = ROOT / "settings.json"
-DOWNLOADS.mkdir(exist_ok=True)
+DOWNLOADS = Path(os.environ.get("TUNEKA_DOWNLOADS", ROOT / "downloads")).expanduser()
+SETTINGS_PATH = APP_DATA_DIR / "settings.json"
+DOWNLOADS.mkdir(parents=True, exist_ok=True)
 IS_WINDOWS = sys.platform.startswith("win")
 YTDLP_NAME = "yt-dlp.exe" if IS_WINDOWS else "yt-dlp"
 FFMPEG_NAME = "ffmpeg.exe" if IS_WINDOWS else "ffmpeg"
