@@ -1483,7 +1483,7 @@ class TunekaApp:
 
     def _build_music_page(self, page):
         self._page_intro(page, "Твій наступний плейлист.",
-                         "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.")
+                         "Мікс із YouTube → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.")
         self.url = tk.StringVar(value="")
         self.music_urls = []
         self.music_sources = []
@@ -1502,9 +1502,17 @@ class TunekaApp:
                                            variant="secondary", height=34, bg="#111511")
         self.select_button.set_state("disabled")
         self.select_button.pack(side="right")
+        self.music_format = Choice(row, state="readonly", width=8,
+                                   values=tuple(value.upper() for value in AUDIO_FORMATS))
+        self.music_format.pack(side="right", padx=(0, 10))
+        self.music_format.set(self.default_playlist_music_format.upper())
+        self.music_format.bind("<<ComboboxSelected>>", self._remember_video_preference)
+        self.music_format_label = tk.Label(row, bg="#111511", fg="#9aa797", font=(FONT, 8, "bold"))
+        self._set_label(self.music_format_label, "ФОРМАТ")
+        self.music_format_label.pack(side="right", padx=(12, 7))
         self.video_label.pack(side="left", fill="x", expand=True)
         self.tree = self._make_table(page, ("title", "start"), ("НАЗВА ТРЕКУ", "ПОЧАТОК"), (650, 100))
-        self.download_button = RoundedButton(self.action_host, text="↓  Завантажити MP3",
+        self.download_button = RoundedButton(self.action_host, text="↓  Завантажити вибрані",
                                              command=self._download, variant="primary", height=42,
                                              bg="#111511")
         self.download_button.set_state("disabled")
@@ -1632,7 +1640,7 @@ class TunekaApp:
             "video_format", "playlist_format", "options_format",
         ))
         music_format_widgets = tuple(getattr(self, name, None) for name in (
-            "playlist_music_format", "options_playlist_music_format",
+            "music_format", "playlist_music_format", "options_playlist_music_format",
         ))
 
         if widget in resolution_widgets:
@@ -1803,7 +1811,7 @@ class TunekaApp:
         self.music_sources = []
         self.track_sources = {}
         self._set_label(self.video_label, "Треки")
-        self._set_label(self.chapter_count, "MP3 · з обкладинкою")
+        self._set_label(self.chapter_count, "")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.select_button.set_state("disabled")
@@ -2193,6 +2201,7 @@ class TunekaApp:
         self.default_playlist_output = "video" if self.options_playlist_output.get() == "Відео" else "music"
         self.default_playlist_music_format = self.options_playlist_music_format.get().lower()
         self._set_playlist_output(self.default_playlist_output, persist=False)
+        self.music_format.set(self.default_playlist_music_format.upper())
         self.playlist_music_format.set(self.default_playlist_music_format.upper())
         self.playlist_resolution.set("Автоматично" if self.default_video_resolution == "best"
                                      else self.default_video_resolution)
@@ -2733,7 +2742,7 @@ class TunekaApp:
         self.select_button.set_text("Зняти вибір")
         self.download_button.set_state("normal")
         if len(sources) == 1 and not failures:
-            message = "Вибери треки й натисни «Завантажити вибрані MP3»."
+            message = "Вибери треки й натисни «Завантажити вибрані»."
         else:
             message = f"Знайдено {chapter_total} треків у {len(sources)} відео. Вибери потрібні й завантаж."
             if failures:
@@ -2771,6 +2780,7 @@ class TunekaApp:
             if row:
                 grouped.setdefault(row["source"], []).append(row["chapter"])
         sources = self.music_sources or [{"url": self.url.get().strip(), "video": self.video}]
+        audio_format = self.music_format.get().lower()
         self.busy = True
         self.find_button.set_state("disabled")
         self.download_button.set_state("disabled")
@@ -2792,7 +2802,7 @@ class TunekaApp:
                         output_dir, created, missing_cover = split_video(
                             source["url"], video, chapters, download_parent, item_progress,
                             filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
-                            control=control,
+                            control=control, audio_format=audio_format,
                         )
                         output_dirs.append(output_dir)
                         tracks.extend(created)
@@ -2805,27 +2815,45 @@ class TunekaApp:
                 if not tracks:
                     raise RuntimeError("Не вдалося завантажити вибрані треки.\n\n" + "\n".join(failures[:5]))
                 output_dir = output_dirs[0] if len(output_dirs) == 1 else download_parent
-                self.root.after(0, lambda: self._download_done(output_dir, tracks, cover_warning, failures))
+                self.root.after(0, lambda: self._download_done(
+                    output_dir, tracks, cover_warning, failures, audio_format,
+                ))
             except DownloadCancelled:
                 self.root.after(0, self._download_cancelled)
             except Exception as exc:
                 self.root.after(0, lambda error=str(exc): self._download_failed(error))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _download_done(self, output_dir: Path, tracks: list[Path], cover_warning: bool, failures=None):
+    def _download_done(self, output_dir: Path, tracks: list[Path], cover_warning: bool, failures=None,
+                       audio_format="mp3"):
         failures = failures or []
         self.busy = False
         self._finish_download_controls()
         self.last_output_dir = output_dir
         self.find_button.set_state("normal")
         self.download_button.set_state("normal")
-        note = " Деякі обкладинки не вдалося вбудувати." if cover_warning else " Обкладинку відео додано до треків."
-        if failures:
-            note += f" Не вдалося обробити відео: {len(failures)}."
-        self._set_status(f"Збережено {len(tracks)} MP3 у {output_dir}.{note}", 100)
+        if self.language == "en":
+            note = " Some cover art could not be embedded." if cover_warning else ""
+            if not cover_warning and AUDIO_FORMATS[audio_format]["cover"]:
+                note = " Video cover art was added to the tracks."
+            if failures:
+                note += f" Could not process {len(failures)} videos."
+            status = f"Saved {len(tracks)} {audio_format.upper()} files to {output_dir}.{note}"
+            message = f"Created {len(tracks)} {audio_format.upper()} files.{note}"
+            folder_label = "Folder"
+        else:
+            note = " Деякі обкладинки не вдалося вбудувати." if cover_warning else ""
+            if not cover_warning and AUDIO_FORMATS[audio_format]["cover"]:
+                note = " Обкладинку відео додано до треків."
+            if failures:
+                note += f" Не вдалося обробити відео: {len(failures)}."
+            status = f"Збережено {len(tracks)} файлів {audio_format.upper()} у {output_dir}.{note}"
+            message = f"Створено {len(tracks)} файлів {audio_format.upper()}.{note}"
+            folder_label = "Тека"
+        self._set_status(status, 100)
         detail = "\n\n" + "\n".join(failures[:5]) if failures else ""
         self._show_dialog("Завантаження завершено",
-                          f"Створено {len(tracks)} треків.{note}{detail}\n\nТека: {output_dir}",
+                          f"{message}{detail}\n\n{folder_label}: {output_dir}",
                           "warning" if failures or cover_warning else "success")
 
     def _download_failed(self, error: str):

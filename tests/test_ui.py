@@ -68,6 +68,8 @@ class DesktopLayoutTests(unittest.TestCase):
                         for widget in (a.playlist_resolution, a.playlist_format, a.playlist_select_button):
                             self.assert_inside(widget, a.page_host)
                         self.assertGreaterEqual(a.playlist_tree.winfo_height(), 95)
+                    if page == 'music':
+                        self.assert_inside(a.music_format, a.page_host)
                     if page == 'options':
                         for widget in (a.options_theme, a.options_playlist_output, a.options_format):
                             self.assert_inside(widget, a.page_host)
@@ -183,7 +185,42 @@ class DesktopLayoutTests(unittest.TestCase):
         a._remember_video_preference(SimpleNamespace(widget=a.options_playlist_music_format))
         self.assertEqual(a.default_playlist_music_format, 'flac')
         self.assertEqual(a.playlist_music_format.get(), 'FLAC')
+        self.assertEqual(a.music_format.get(), 'FLAC')
         self.assertEqual(len(saved), 3)
+
+    def test_chapter_download_uses_the_selected_music_format(self):
+        a = self.app
+        a._save_settings = lambda: None
+        a.video = {'title': 'Mix', 'chapters': [{'index': 0, 'title': 'Track', 'start': 0, 'end': 30}]}
+        a.music_sources = [{'url': 'https://youtube.com/watch?v=abcdefghijk', 'video': a.video}]
+        if a.tree.exists('0'):
+            a.tree.delete('0')
+        a.tree.insert('', 'end', iid='0', values=('Track', '00:00'))
+        a.track_sources = {'0': {'source': 0, 'chapter': 0}}
+        a.tree.selection_set('0')
+        a.music_format.set('FLAC')
+        calls = []
+
+        class InlineThread:
+            def __init__(self, target, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with tempfile.TemporaryDirectory() as folder, \
+                patch('app.threading.Thread', InlineThread), \
+                patch('app.split_video', side_effect=lambda *args, **kwargs: (
+                    calls.append(kwargs['audio_format']) or Path(folder), [Path(folder) / 'Track.flac'], False
+                )), \
+                patch.object(a.root, 'after', lambda *_args: None):
+            a.download_parent = Path(folder)
+            a._download()
+
+        self.assertEqual(calls, ['flac'])
+        a.busy = False
+        a.find_button.set_state('normal')
+        a.download_button.set_state('disabled')
 
 
 if __name__ == '__main__':

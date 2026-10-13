@@ -39,8 +39,8 @@ UK_TO_EN = {
     "Встав посилання на YouTube-плейлист, щоб вибрати відео.":
         "Paste a YouTube playlist link to choose videos.",
     "Твій наступний плейлист.": "Your next playlist.",
-    "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.":
-        "A YouTube mix becomes separate MP3 files with titles and cover art. No chapters? One track.",
+    "Мікс із YouTube → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.":
+        "A YouTube mix becomes separate music files with titles and cover art. No chapters? One track.",
     "Відео, яке лишається з тобою.": "Video that stays with you.",
     "Додати кілька…": "Add multiple…",
     "Додати": "Add",
@@ -120,8 +120,8 @@ UK_TO_EN = {
     "Підпапок: ": "Subfolders: ",
     "У плейлисті ": "Playlist has ",
     " відео. Вибери потрібні й завантаж.": " videos. Select the ones you want and download them.",
-    "Вибери треки й натисни «Завантажити вибрані MP3».":
-        "Select tracks and click ‘Download selected MP3’.",
+    "Вибери треки й натисни «Завантажити вибрані».":
+        "Select tracks and click ‘Download selected’.",
     "Теку вибрано, але не вдалося зберегти вибір:": "Folder selected, but the choice could not be saved:",
     "Під час завантаження сталася помилка.": "An error occurred during download.",
     "Завантажити плейлист": "Download playlist",
@@ -156,8 +156,8 @@ UK_TO_EN = {
     "Скасовую завантаження…": "Cancelling download…",
     "Оновлюю бінарники…": "Updating tools…",
     "Готово до завантаження:": "Ready to download:",
-    "Вибери треки й натисни «Завантажити вибрані MP3».":
-        "Select tracks and click ‘Download selected MP3’.",
+    "Вибери треки й натисни «Завантажити вибрані».":
+        "Select tracks and click ‘Download selected’.",
     "Завантажую відео…": "Downloading video…",
     "Завантажую аудіо з YouTube…": "Downloading audio from YouTube…",
     "Перевіряю інструменти…": "Checking tools…",
