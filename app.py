@@ -102,7 +102,7 @@ def validate_binary(path: Path, version_arg: str) -> bool:
 
 def download_file(url: str, target: Path, progress) -> None:
     temporary = target.with_name(target.name + ".download")
-    request = urllib.request.Request(url, headers={"User-Agent": "Tracksplit/1.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
     try:
         with urllib.request.urlopen(request, timeout=45) as response, temporary.open("wb") as output:
             total = int(response.headers.get("Content-Length", "0"))
@@ -358,8 +358,8 @@ def download_video_file(url: str, title: str, output_dir: Path, progress, *,
                "--no-simulate", "--no-playlist",
                "--ffmpeg-location", str(FFMPEG_PATH),
                "--progress-template",
-               "download:TRACKSPLIT_PROGRESS %(progress._percent_str)s · %(progress._speed_str)s · ETA %(progress._eta_str)s",
-               "--progress-template", "postprocess:TRACKSPLIT_POSTPROCESS %(progress._default_template)s",
+               "download:TUNEKA_PROGRESS %(progress._percent_str)s · %(progress._speed_str)s · ETA %(progress._eta_str)s",
+               "--progress-template", "postprocess:TUNEKA_POSTPROCESS %(progress._default_template)s",
                "-f", format_selector, "--merge-output-format", container, "--remux-video", container,
                "-o", output_template, "--print", "after_move:filepath", url]
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
@@ -383,15 +383,15 @@ def download_video_file(url: str, title: str, output_dir: Path, progress, *,
             if line.startswith("ERROR:") or line.startswith("ERROR "):
                 error_lines.append(line)
                 error_lines = error_lines[-8:]
-            if line.startswith("TRACKSPLIT_PROGRESS"):
+            if line.startswith("TUNEKA_PROGRESS"):
                 match = re.search(r"(\d+(?:\.\d+)?)%", line)
                 if match:
                     percent = float(match.group(1))
-                    detail = line.partition("TRACKSPLIT_PROGRESS")[2].strip()
+                    detail = line.partition("TUNEKA_PROGRESS")[2].strip()
                     progress(f"Завантажую відео… {detail}", max(1, min(98, int(percent))))
                 continue
-            if line.startswith("TRACKSPLIT_POSTPROCESS"):
-                detail = line.partition("TRACKSPLIT_POSTPROCESS")[2].strip()
+            if line.startswith("TUNEKA_POSTPROCESS"):
+                detail = line.partition("TUNEKA_POSTPROCESS")[2].strip()
                 progress(f"Обробляю відео… {detail}", 98)
                 continue
             match = re.search(r"(\d+(?:\.\d+)?)%", line)
@@ -438,7 +438,7 @@ def download_video_file(url: str, title: str, output_dir: Path, progress, *,
             downloaded = max(candidates, key=lambda path: path.stat().st_mtime)
     if code or downloaded is None:
         diagnostics = [line for line in output_lines if not line.startswith((
-            "TRACKSPLIT_PROGRESS", "TRACKSPLIT_POSTPROCESS", "[Merger] Merging formats into:",
+            "TUNEKA_PROGRESS", "TUNEKA_POSTPROCESS", "[Merger] Merging formats into:",
         )) and not (line.startswith("/") or re.match(r"^[A-Za-z]:\\", line))]
         details = "\n".join(error_lines or diagnostics).strip()[-1200:]
         raise RuntimeError(details or f"yt-dlp не завантажив відео (код {code}).")
@@ -477,7 +477,7 @@ def timestamp(seconds: float) -> str:
 def download_cover(url: str | None, target: Path) -> Path | None:
     if not url:
         return None
-    request = urllib.request.Request(url, headers={"User-Agent": "Tracksplit/1.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             if not response.headers.get("Content-Type", "").lower().startswith("image/"):
@@ -497,7 +497,7 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
     jobdir.mkdir(parents=True, exist_ok=True)
     # Keep the downloaded source out of the user's output folder and always
     # remove it, including when yt-dlp or ffmpeg fails partway through.
-    with tempfile.TemporaryDirectory(prefix=".tracksplit-", dir=jobdir) as temporary_dir:
+    with tempfile.TemporaryDirectory(prefix=".tuneka-", dir=jobdir) as temporary_dir:
         cover_warning = False
         cover_path = Path(temporary_dir) / "video-cover"
         progress("Завантажую обкладинку відео…", 0)
@@ -883,7 +883,7 @@ class RoundedCard(tk.Frame):
         self._resize(type("Size", (), {"width": self.canvas.winfo_width(), "height": self.canvas.winfo_height()})())
 
 
-class TrackSplitApp:
+class TunekaApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.video: dict | None = None
@@ -904,7 +904,7 @@ class TrackSplitApp:
         self.intro_titles = []
         self._compact_pack = {}
         self.compact = False
-        self.root.title("Tracksplit")
+        self.root.title("Tuneka")
         self.root.geometry(f"{min(1220, self.root.winfo_screenwidth()-60)}x{min(840, self.root.winfo_screenheight()-100)}")
         self.root.minsize(980, 700)
         self.root.configure(bg="#111511")
@@ -953,7 +953,7 @@ class TrackSplitApp:
         brand.pack(fill="x", padx=8, pady=(2, 34))
         self.brand_mark = WaveMark(brand, bg=card, accent=accent, ink="#223017", size=36)
         self.brand_mark.pack(side="left", padx=(0, 10))
-        tk.Label(brand, text="tracksplit", bg=card, fg=ink,
+        tk.Label(brand, text="tuneka", bg=card, fg=ink,
                  font=(FONT, 16, "bold")).pack(side="left")
         tk.Label(self.sidebar, text="ВАША КОЛЕКЦІЯ", bg=card, fg=muted,
                  font=(FONT, 8, "bold")).pack(anchor="w", padx=14, pady=(0, 12))
@@ -1267,7 +1267,7 @@ class TrackSplitApp:
         return {"mp4": "MP4", "mkv": "MKV", "webm": "WebM"}.get(str(value).lower(), "MP4")
 
     def _build_options_page(self, page):
-        self._page_intro(page, "Опції", "Задай теки та формати, які Tracksplit використовуватиме за замовчуванням.")
+        self._page_intro(page, "Опції", "Задай теки та формати, які Tuneka використовуватиме за замовчуванням.")
         folder_card = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=20)
         folder_card.pack(fill="x")
         tk.Label(folder_card.content, text="ТЕКА ДЛЯ ЗАВАНТАЖЕНЬ", bg="#1b211c", fg="#9aa797",
@@ -1928,7 +1928,7 @@ class TrackSplitApp:
     def _walk_widgets(parent):
         for child in parent.winfo_children():
             yield child
-            yield from TrackSplitApp._walk_widgets(child)
+            yield from TunekaApp._walk_widgets(child)
 
     def _choose_download_parent(self):
         theme = THEMES[self.theme_name]
@@ -2261,7 +2261,7 @@ class TrackSplitApp:
 
 def main():
     root = tk.Tk()
-    TrackSplitApp(root)
+    TunekaApp(root)
     root.mainloop()
 
 

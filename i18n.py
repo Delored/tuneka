@@ -1,4 +1,4 @@
-"""Small built-in UI translations for Tracksplit."""
+"""Small built-in UI translations for Tuneka."""
 import re
 
 UK_TO_EN = {
@@ -49,8 +49,8 @@ UK_TO_EN = {
         "Choose videos from a playlist and download them as separate MP3 or video files.",
     "Збережи окреме відео у вибраній якості та стандартному контейнері.":
         "Save a video at the selected quality and in a standard format.",
-    "Задай теки та формати, які Tracksplit використовуватиме за замовчуванням.":
-        "Set the folders and formats Tracksplit will use by default.",
+    "Задай теки та формати, які Tuneka використовуватиме за замовчуванням.":
+        "Set the folders and formats Tuneka will use by default.",
     "Треки": "Tracks", "MP3 · з обкладинкою": "MP3 · with cover art",
     "ФОРМАТ ЗАВАНТАЖЕННЯ": "DOWNLOAD FORMAT",
     "MP3 · 1 файл на відео": "MP3 · 1 file per video",

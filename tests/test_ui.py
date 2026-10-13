@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app import TrackSplitApp, THEMES, draw_round_rect
+from app import TunekaApp, THEMES, draw_round_rect
 from ui import _corner_tiles
 
 
@@ -22,9 +22,9 @@ class DesktopLayoutTests(unittest.TestCase):
         cls.errors = []
         cls.root.report_callback_exception = lambda *args: cls.errors.append(args)
         cls.root.geometry('1220x840+0+0')
-        with patch.object(TrackSplitApp, '_bootstrap_tools', lambda self: None), \
-             patch.object(TrackSplitApp, '_save_settings', lambda self: None):
-            cls.app = TrackSplitApp(cls.root)
+        with patch.object(TunekaApp, '_bootstrap_tools', lambda self: None), \
+             patch.object(TunekaApp, '_save_settings', lambda self: None):
+            cls.app = TunekaApp(cls.root)
             cls.pump()
         cls.app._save_settings = lambda: None
 
@@ -101,8 +101,8 @@ class DesktopLayoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, patch('app.SETTINGS_PATH', Path(folder) / 'settings.json'):
             self.app.theme_selector._choose('Світла')
             self.pump()
-            TrackSplitApp._save_settings(self.app)
-            self.assertEqual(TrackSplitApp._load_theme(), 'light')
+            TunekaApp._save_settings(self.app)
+            self.assertEqual(TunekaApp._load_theme(), 'light')
 
     def test_styled_theme_popup_and_matched_source_actions(self):
         a = self.app
