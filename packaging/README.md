@@ -20,6 +20,6 @@ sudo apt install ./dist/tuneka_0.1.0_amd64.deb
 
 ## GitHub Actions
 
-Pull requests targeting `master` run the Python unit and UI regression tests, then build `.deb` packages for both architectures and a Windows x64 portable ZIP. CI also runs on pushes to `master`.
+Pull requests targeting `master` run the Python unit and UI regression tests, then build `.deb` packages for both architectures, a Windows x64 installer, and a Windows x64 portable ZIP. CI also runs on pushes to `master`.
 
-To publish a release, open **Actions → CI and release → Run workflow** on the `master` branch and provide a version such as `v0.2.0`. The workflow reruns tests and builds all packages, then attaches the `.deb` files and Windows portable ZIP to a GitHub Release. A workflow dispatch from any other branch will not publish a release. The Windows ZIP contains the app but downloads `yt-dlp` and FFmpeg on first launch into the current user's local application data directory.
+To publish a release, open **Actions → CI and release → Run workflow** on the `master` branch and provide a version such as `v0.2.0`. The workflow reruns tests and builds all packages, then attaches the `.deb` files, Windows installer, and Windows portable ZIP to a GitHub Release. A workflow dispatch from any other branch will not publish a release. Both Windows builds download `yt-dlp` and FFmpeg on first launch into the current user's local application data directory. The installer installs the app under Program Files, creates a Start menu shortcut, and optionally creates a desktop shortcut.

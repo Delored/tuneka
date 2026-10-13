@@ -35,9 +35,11 @@ On Windows, use:
 python app.py
 ```
 
-## Windows portable ZIP
+## Windows downloads
 
-The GitHub Actions workflow builds a Windows x64 portable ZIP alongside the Debian packages. Download `Tuneka-windows-x64.zip` from a successful workflow run's artifacts, or from a GitHub Release. Extract the ZIP to a folder and launch `Tuneka.exe`; no Python installation is required. On first launch, Tuneka downloads the required `yt-dlp` and FFmpeg tools. The tools and settings are stored in `%LOCALAPPDATA%\Tuneka`, and downloads default to your Windows Downloads folder.
+The GitHub Actions workflow creates both a Windows x64 installer and a portable ZIP. Download `Tuneka-Setup-x64.exe` from a successful workflow run's artifacts, or from a GitHub Release, and follow the setup wizard. It installs Tuneka under Program Files and adds a Start menu shortcut; a desktop shortcut is optional. Uninstall it from Windows Settings → Apps. The installer does not remove your settings or downloaded media.
+
+If you prefer not to install the app, download `Tuneka-windows-x64.zip`, extract it, and launch `Tuneka.exe`. No Python installation is required for either build. On first launch, Tuneka downloads the required `yt-dlp` and FFmpeg tools. Both Windows builds store tools and settings in `%LOCALAPPDATA%\Tuneka`, and downloads default to your Windows Downloads folder.
 
 Tuneka downloads `yt-dlp` from its [official GitHub releases](https://github.com/yt-dlp/yt-dlp/releases/latest) and FFmpeg from [imageio-binaries](https://github.com/imageio/imageio-binaries/tree/master/ffmpeg). Use **Update tools** in the app to download them again.
 
@@ -64,9 +66,9 @@ xvfb-run --auto-servernum python3 -m unittest discover --start-directory tests -
 
 ## Downloads and settings
 
-By default, source runs save files under a `downloads/` folder beside the application. The Windows portable build defaults to the user's Downloads folder. A chaptered music mix gets its own folder named after the video; a mix without chapters is saved as one music file in the selected format directly in the selected folder. Standalone videos are also saved directly in the selected folder. Playlist downloads get one folder named after the playlist, containing the selected videos or music files. The destination folder can be changed in the app, and the selection is remembered between launches.
+By default, source runs save files under a `downloads/` folder beside the application. Windows builds default to the user's Downloads folder. A chaptered music mix gets its own folder named after the video; a mix without chapters is saved as one music file in the selected format directly in the selected folder. Standalone videos are also saved directly in the selected folder. Playlist downloads get one folder named after the playlist, containing the selected videos or music files. The destination folder can be changed in the app, and the selection is remembered between launches.
 
-Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application for source runs and under `%LOCALAPPDATA%\Tuneka` in the Windows portable build.
+Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application for source runs and under `%LOCALAPPDATA%\Tuneka` in Windows builds.
 
 ## Legal and responsible use
 
