@@ -2,7 +2,7 @@ Package: tuneka
 Version: @VERSION@
 Section: sound
 Priority: optional
-Architecture: amd64
+Architecture: @ARCHITECTURE@
 Depends: python3 (>= 3.10), python3-tk
 Maintainer: Tuneka contributors <delored@users.noreply.github.com>
 Description: Desktop downloader for YouTube music, playlists, and videos

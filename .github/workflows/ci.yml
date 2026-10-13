@@ -1,0 +1,99 @@
+name: CI and release
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (for example v0.2.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Python tests
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install Tk test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes python3-tk xvfb
+      - name: Run unit and UI regression tests
+        run: xvfb-run --auto-servernum python3 -m unittest discover --start-directory tests --pattern 'test_*.py' --verbose
+
+  build-deb:
+    name: Build Debian package (${{ matrix.arch }})
+    needs: tests
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Build and validate Debian package
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$RELEASE_VERSION" ]; then
+            if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+              echo "Version must look like v1.2.3 or v1.2.3-rc.1" >&2
+              exit 1
+            fi
+            package_version=${RELEASE_VERSION#v}
+          else
+            package_version="0.0.0~ci${GITHUB_RUN_NUMBER}"
+          fi
+          sh packaging/debian/build-deb.sh "$package_version"
+          package="dist/tuneka_${package_version}_${{ matrix.arch }}.deb"
+          test -s "$package"
+          test "$(dpkg-deb --field "$package" Architecture)" = "${{ matrix.arch }}"
+          dpkg-deb --contents "$package"
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuneka-deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    needs: build-deb
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download Debian packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tuneka-deb-*
+          path: dist
+          merge-multiple: true
+      - name: Create release from master
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/master"
+          test "$(find dist -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 2
+          gh release create "$RELEASE_VERSION" dist/*.deb \
+            --target master \
+            --title "Tuneka $RELEASE_VERSION" \
+            --generate-notes
