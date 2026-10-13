@@ -22,13 +22,26 @@ from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa
 from i18n import UK_TO_EN, translate, translate_error
 
 ROOT = Path(__file__).resolve().parent
-APP_DATA_DIR = Path(os.environ.get("TUNEKA_DATA_DIR", ROOT)).expanduser()
+IS_WINDOWS = sys.platform.startswith("win")
+IS_FROZEN = getattr(sys, "frozen", False)
+if "TUNEKA_DATA_DIR" in os.environ:
+    APP_DATA_DIR = Path(os.environ["TUNEKA_DATA_DIR"]).expanduser()
+elif IS_WINDOWS and IS_FROZEN:
+    local_app_data = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    APP_DATA_DIR = local_app_data / "Tuneka"
+else:
+    APP_DATA_DIR = ROOT
 RESOURCES = APP_DATA_DIR / "resources"
 BIN_DIR = RESOURCES / "bin"
-DOWNLOADS = Path(os.environ.get("TUNEKA_DOWNLOADS", ROOT / "downloads")).expanduser()
+if "TUNEKA_DOWNLOADS" in os.environ:
+    DOWNLOADS = Path(os.environ["TUNEKA_DOWNLOADS"]).expanduser()
+elif IS_WINDOWS and IS_FROZEN:
+    DOWNLOADS = Path.home() / "Downloads"
+else:
+    DOWNLOADS = ROOT / "downloads"
 SETTINGS_PATH = APP_DATA_DIR / "settings.json"
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 DOWNLOADS.mkdir(parents=True, exist_ok=True)
-IS_WINDOWS = sys.platform.startswith("win")
 YTDLP_NAME = "yt-dlp.exe" if IS_WINDOWS else "yt-dlp"
 FFMPEG_NAME = "ffmpeg.exe" if IS_WINDOWS else "ffmpeg"
 YTDLP_PATH = BIN_DIR / YTDLP_NAME

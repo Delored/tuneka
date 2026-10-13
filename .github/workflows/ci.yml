@@ -72,9 +72,41 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-windows:
+    name: Build Windows portable ZIP (x64)
+    needs: tests
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pyinstaller
+      - name: Build portable application
+        run: pyinstaller --noconfirm --clean --windowed --onedir --name Tuneka app.py
+      - name: Add documentation and create ZIP
+        shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE -Destination dist/Tuneka/
+          Compress-Archive -Path dist/Tuneka -DestinationPath dist/Tuneka-windows-x64.zip
+          if ((Get-Item dist/Tuneka-windows-x64.zip).Length -le 0) {
+            throw "The Windows portable ZIP is empty."
+          }
+      - name: Upload Windows portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuneka-windows-x64
+          path: dist/Tuneka-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     name: Publish GitHub release
-    needs: build-deb
+    needs: [build-deb, build-windows]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     permissions:
@@ -82,10 +114,10 @@ jobs:
     steps:
       - name: Check out master
         uses: actions/checkout@v4
-      - name: Download Debian packages
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: tuneka-deb-*
+          pattern: tuneka-*
           path: dist
           merge-multiple: true
       - name: Create release from master
@@ -95,7 +127,8 @@ jobs:
         run: |
           test "${GITHUB_REF}" = "refs/heads/master"
           test "$(find dist -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 2
-          gh release create "$RELEASE_VERSION" dist/*.deb \
+          test -s dist/Tuneka-windows-x64.zip
+          gh release create "$RELEASE_VERSION" dist/*.deb dist/*.zip \
             --target master \
             --title "Tuneka $RELEASE_VERSION" \
             --generate-notes
