@@ -2835,7 +2835,10 @@ class TunekaApp:
                         output_dir, created, missing_cover = retry_download_once_on_403(
                             lambda: split_video(
                                 source["url"], video, chapters, download_parent, item_progress,
-                                filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
+                                filename_prefix=(
+                                    f"{source_index + 1:02d} - "
+                                    if len(sources) > 1 and video.get("has_chapters") is False else ""
+                                ),
                                 control=control, audio_format=audio_format,
                             ), item_progress, control,
                         )
