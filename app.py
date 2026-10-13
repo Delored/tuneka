@@ -1191,6 +1191,11 @@ class TunekaApp:
         self._compact_pack = {}
         self.compact = False
         self.root.title("Tuneka")
+        if sys.platform.startswith("linux"):
+            try:
+                self.root.tk.call("wm", "class", self.root._w, "Tuneka")
+            except tk.TclError:
+                pass
         app_icon = ROOT / "assets" / "tuneka.png"
         if app_icon.is_file():
             try:
