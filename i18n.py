@@ -13,7 +13,7 @@ UK_TO_EN = {
     "Пауза": "Pause", "Продовжити": "Resume", "Скасувати": "Cancel",
     "Відкрити теку  ↗": "Open folder  ↗",
     "Відкрити теку": "Open folder",
-    "ПОСИЛАННЯ НА YOUTUBE": "YOUTUBE LINK",
+    "ПОСИЛАННЯ НА ВІДЕО": "VIDEO LINK",
     "Обробити  →": "Process  →",
     "Обробка…": "Processing…",
     "Знайти відео  →": "Find videos  →",
@@ -36,19 +36,19 @@ UK_TO_EN = {
     "Улюблене — цілим плейлистом": "A playlist full of favorites",
     "Додай посилання вище — тут з’являться треки для вибору.":
         "Add a link above and tracks will appear here.",
-    "Встав посилання на YouTube-плейлист, щоб вибрати відео.":
-        "Paste a YouTube playlist link to choose videos.",
+    "Встав посилання на плейлист, щоб вибрати відео.":
+        "Paste a playlist link to choose videos.",
     "Твій наступний плейлист.": "Your next playlist.",
-    "Мікс із YouTube → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.":
-        "A YouTube mix becomes separate music files with titles and cover art. No chapters? One track.",
+    "Мікс → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.":
+        "A mix becomes separate music files with titles and cover art. No chapters? One track.",
     "Відео, яке лишається з тобою.": "Video that stays with you.",
     "Додати кілька…": "Add multiple…",
     "Додати": "Add",
     "Кілька посилань": "Multiple links",
-    "Додай посилання на YouTube": "Add YouTube links",
+    "Додай посилання на відео": "Add video links",
     "Встав одне посилання на рядок. Повтори не додаватимуться.":
         "Paste one link per line. Duplicates are ignored.",
-    "Не схожі на посилання YouTube:": "These do not look like YouTube links:",
+    "Некоректні посилання:": "Invalid links:",
     "Додай хоча б одне посилання.": "Add at least one link.",
     "Відеофайли буде завантажено послідовно у вибраній якості.":
         "Videos will be downloaded one by one at the selected quality.",
@@ -87,11 +87,12 @@ UK_TO_EN = {
     "Тека для завантажень": "Download folder",
     "Перевір посилання": "Check link",
     "Перевірити посилання": "Check link",
-    "Встав коректне HTTPS-посилання на YouTube плейлист.":
-        "Enter a valid HTTPS link to a YouTube playlist.",
-    "Встав коректне HTTPS-посилання на YouTube відео.":
-        "Enter a valid HTTPS link to a YouTube video.",
-    "Встав коректне HTTPS-посилання на YouTube.": "Enter a valid HTTPS link to YouTube.",
+    "Встав коректне HTTPS-посилання на плейлист.":
+        "Enter a valid HTTPS playlist link.",
+    "Встав коректне HTTPS-посилання на відео.":
+        "Enter a valid HTTPS video link.",
+    "Встав коректне HTTPS-посилання на відео або плейлист.":
+        "Enter a valid HTTPS video or playlist link.",
     "Читаю плейлист…": "Reading playlist…",
     "Не вдалося прочитати плейлист.": "Could not read the playlist.",
     "Не вибрано відео": "No videos selected",
@@ -131,13 +132,13 @@ UK_TO_EN = {
     "Відео плейлиста з’являться тут": "Playlist videos will appear here",
     "Відео плейлиста": "Playlist videos",
     "Треки з відео з'являться тут": "Tracks will appear here",
-    "Встав посилання на YouTube…": "Paste a YouTube link…",
+    "Встав посилання на відео або плейлист…": "Paste a video or playlist link…",
     "Треки з’являться тут": "Tracks will appear here",
     "ВІДЕО": "VIDEO", "ТРИВАЛІСТЬ": "DURATION", "НАЗВА ТРЕКУ": "TRACK TITLE",
     "ПОЧАТОК": "START", "РОЗДІЛИ": "CHAPTERS",
     "Місце для твого наступного відео": "Your next video goes here",
     "Перевір посилання, щоб побачити назву й тривалість.": "Check a link to see its title and duration.",
-    "YouTube · Готове до завантаження": "YouTube · Ready to download",
+    "Відео  ·  ": "Video  ·  ",
     "Готове до завантаження": "Ready to download",
     "Куди зберігати файли?": "Where should files be saved?",
     "Обери теку зі списку або введи шлях вручну.": "Choose a folder from the list or enter a path.",
@@ -159,9 +160,9 @@ UK_TO_EN = {
     "Вибери треки й натисни «Завантажити вибрані».":
         "Select tracks and click ‘Download selected’.",
     "Завантажую відео…": "Downloading video…",
-    "Завантажую аудіо з YouTube…": "Downloading audio from YouTube…",
-    "Повторюю завантаження після тимчасової відмови YouTube…":
-        "Retrying after a temporary YouTube refusal…",
+    "Завантажую аудіо…": "Downloading audio…",
+    "Повторюю завантаження після тимчасової відмови джерела…":
+        "Retrying after a temporary source refusal…",
     "Перевіряю інструменти…": "Checking tools…",
     "Готово до роботи. Додай посилання, щоб почати.": "Ready. Add a link to get started.",
     "Не вдалося підготувати інструменти.": "Could not prepare tools.",

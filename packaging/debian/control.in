@@ -5,6 +5,6 @@ Priority: optional
 Architecture: @ARCHITECTURE@
 Depends: python3 (>= 3.10), python3-tk
 Maintainer: Tuneka contributors <delored@users.noreply.github.com>
-Description: Desktop downloader for YouTube music, playlists, and videos
+Description: Desktop downloader for music, playlists, and videos
  Tuneka can split chaptered mixes into individually named MP3 tracks,
  download playlists, and save videos in common formats.

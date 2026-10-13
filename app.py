@@ -329,7 +329,7 @@ def valid_youtube_url(value: str) -> bool:
 
 
 def youtube_video_url_from_entry(item: dict) -> str | None:
-    """Build a canonical YouTube watch URL without trusting extractor-provided hosts."""
+    """Build a canonical video URL without trusting extractor-provided hosts."""
     video_id = item.get("id")
     if not isinstance(video_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
         video_id = item.get("url")
@@ -357,7 +357,7 @@ def youtube_video_url_from_entry(item: dict) -> str | None:
 
 
 def parse_youtube_urls(value: str) -> tuple[list[str], list[str]]:
-    """Read one or more YouTube links separated by whitespace, commas, or semicolons."""
+    """Read one or more video links separated by whitespace, commas, or semicolons."""
     urls, invalid, seen = [], [], set()
     for item in re.split(r"[\s,;]+", value):
         item = item.strip().rstrip(".,)")
@@ -380,7 +380,7 @@ class DownloadCancelled(Exception):
 
 
 def retry_download_once_on_403(download, progress, control=None):
-    """Retry once when YouTube temporarily rejects a media request."""
+    """Retry once when the media source temporarily rejects a request."""
     try:
         return download()
     except RuntimeError as exc:
@@ -388,7 +388,7 @@ def retry_download_once_on_403(download, progress, control=None):
             raise
         if control:
             control.check_cancelled()
-        progress("Повторюю завантаження після тимчасової відмови YouTube…", 0)
+        progress("Повторюю завантаження після тимчасової відмови джерела…", 0)
         time.sleep(1)
         if control:
             control.check_cancelled()
@@ -516,7 +516,7 @@ def info_for(url: str, control: DownloadController | None = None) -> dict:
     data = json.loads(result.stdout)
     chapters = data.get("chapters") or []
     has_chapters = bool(chapters)
-    title = data.get("title") or "YouTube відео"
+    title = data.get("title") or "Відео"
     duration = data.get("duration")
     if not isinstance(duration, (int, float)) or duration <= 0:
         duration = None
@@ -572,7 +572,7 @@ def playlist_info_for(url: str) -> dict:
         })
     if not entries:
         raise RuntimeError("У плейлисті не знайдено доступних відео.")
-    return {"title": data.get("title") or "YouTube плейлист", "entries": entries}
+    return {"title": data.get("title") or "Плейлист", "entries": entries}
 
 
 def download_video_file(url: str, title: str, output_dir: Path, progress, *,
@@ -605,7 +605,7 @@ def download_video_file(url: str, title: str, output_dir: Path, progress, *,
     output_lines = []
     error_lines = []
     downloaded = None
-    progress("Отримую інформацію з YouTube…", 0)
+    progress("Отримую інформацію про відео…", 0)
     last_phase = None
     try:
         for line in process.stdout or []:
@@ -696,7 +696,7 @@ def safe_foldername(value: str) -> str:
     # Replace characters forbidden in Windows/macOS/Linux path components with spaces.
     value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", value)
     value = re.sub(r"\s+", " ", value).strip().rstrip(". ")
-    value = value[:120].strip().rstrip(". ") or "YouTube відео"
+    value = value[:120].strip().rstrip(". ") or "Відео"
     if value.upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
         value = f"_{value}"
     return value
@@ -780,7 +780,7 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
         source_template = str(Path(temporary_dir) / "source.%(ext)s")
         command = [str(YTDLP_PATH), "--no-warnings", "--no-progress", "--no-colors", "--no-playlist", "-f", "bestaudio/best",
                    "-o", source_template, "--print", "after_move:filepath", url]
-        progress("Завантажую аудіо з YouTube…", 0)
+        progress("Завантажую аудіо…", 0)
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                    bufsize=1, **process_group_kwargs())
         if control:
@@ -1014,7 +1014,7 @@ class RoundedEntry(tk.Frame):
                               selectforeground="#ffffff", font=(FONT, 11))
         self.entry.place(x=13, y=9, relwidth=1, width=-26, height=28)
         self.variable = textvariable
-        self.placeholder = tk.Label(self.entry, text="Встав посилання на YouTube…", bg=field,
+        self.placeholder = tk.Label(self.entry, text="Встав посилання на відео або плейлист…", bg=field,
                                     fg="#9aa797", font=(FONT, 10), anchor="w", cursor="xterm")
         self.placeholder.bind("<Button-1>", lambda _e: self.entry.focus_set())
         self.variable.trace_add("write", self._update_placeholder)
@@ -1374,7 +1374,7 @@ class TunekaApp:
     def _source_card(self, parent, variable, button_text, command, *, url_list_attr=None):
         card = RoundedCard(parent, bg="#111511", fill="#1b211c", padding=16, radius=24)
         card.pack(fill="x")
-        caption = tk.Label(card.content, text="ПОСИЛАННЯ НА YOUTUBE", bg="#1b211c", fg="#9aa797",
+        caption = tk.Label(card.content, text="ПОСИЛАННЯ НА ВІДЕО", bg="#1b211c", fg="#9aa797",
                            font=(FONT, 9, "bold"))
         caption.pack(anchor="w", pady=(0, 9))
         self.compact_elements.append(caption)
@@ -1410,7 +1410,7 @@ class TunekaApp:
         card.border = theme["border"]
         card.pack(fill="both", expand=True, padx=12, pady=12)
         content = card.content
-        tk.Label(content, text=self._tr("Додай посилання на YouTube"), bg=theme["card"], fg=theme["ink"],
+        tk.Label(content, text=self._tr("Додай посилання на відео"), bg=theme["card"], fg=theme["ink"],
                  font=(FONT, 16, "bold"), anchor="w").pack(fill="x")
         tk.Label(content, text=self._tr("Встав одне посилання на рядок. Повтори не додаватимуться."),
                  bg=theme["card"], fg=theme["muted"], font=(FONT, 10), anchor="w",
@@ -1439,7 +1439,7 @@ class TunekaApp:
         def apply():
             urls, invalid = parse_youtube_urls(text.get("1.0", "end-1c"))
             if invalid:
-                feedback.configure(text=self._tr("Не схожі на посилання YouTube:") + " " + ", ".join(invalid[:3]))
+                feedback.configure(text=self._tr("Некоректні посилання:") + " " + ", ".join(invalid[:3]))
                 return
             if not urls:
                 feedback.configure(text=self._tr("Додай хоча б одне посилання."))
@@ -1487,7 +1487,7 @@ class TunekaApp:
         tree = MediaList(card.content, columns=columns,
                          empty_title="Кожен мікс починається з посилання" if music else "Улюблене — цілим плейлистом",
                          empty_description="Додай посилання вище — тут з’являться треки для вибору." if music
-                         else "Встав посилання на YouTube-плейлист, щоб вибрати відео.")
+                         else "Встав посилання на плейлист, щоб вибрати відео.")
         for column, heading, width in zip(columns, headings, widths):
             tree.heading(column, text=heading.capitalize(), anchor="w")
             tree.column(column, anchor="w" if column not in ("start", "duration") else "e",
@@ -1508,7 +1508,7 @@ class TunekaApp:
 
     def _build_music_page(self, page):
         self._page_intro(page, "Твій наступний плейлист.",
-                         "Мікс із YouTube → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.")
+                         "Мікс → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.")
         self.url = tk.StringVar(value="")
         self.music_urls = []
         self.music_sources = []
@@ -1914,7 +1914,7 @@ class TunekaApp:
     def _find_playlist(self):
         url = self.playlist_url.get().strip()
         if not valid_youtube_url(url):
-            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube плейлист.", "warning")
+            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на плейлист.", "warning")
             return
         if self.busy:
             return
@@ -2076,7 +2076,7 @@ class TunekaApp:
     def _prepare_video(self):
         urls = self._source_urls(self.video_url, "video_urls")
         if not urls:
-            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube відео.", "warning")
+            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на відео.", "warning")
             return
         if self.busy:
             return
@@ -2117,7 +2117,7 @@ class TunekaApp:
             video = videos[0]["video"]
             self.video_preview.title = video["title"]
             self.video_preview.description = (
-                f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  {self._tr('Готове до завантаження')}"
+                f"Відео  ·  {self._duration_text(video.get('duration'))}  ·  {self._tr('Готове до завантаження')}"
             )
         else:
             self.video_preview.title = f"{len(videos)} відео готові до завантаження"
@@ -2142,7 +2142,7 @@ class TunekaApp:
     def _download_video(self):
         urls = self._source_urls(self.video_url, "video_urls")
         if not urls:
-            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube відео.", "warning")
+            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на відео.", "warning")
             return
         if self.busy:
             return
@@ -2703,7 +2703,7 @@ class TunekaApp:
     def _find_chapters(self):
         urls = self._source_urls(self.url, "music_urls")
         if not urls:
-            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на YouTube.", "warning")
+            self._show_dialog("Перевір посилання", "Встав коректне HTTPS-посилання на відео або плейлист.", "warning")
             return
         if self.busy:
             return
