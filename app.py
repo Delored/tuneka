@@ -1191,6 +1191,13 @@ class TunekaApp:
         self._compact_pack = {}
         self.compact = False
         self.root.title("Tuneka")
+        app_icon = ROOT / "assets" / "tuneka.png"
+        if app_icon.is_file():
+            try:
+                self.app_icon = tk.PhotoImage(file=str(app_icon))
+                self.root.iconphoto(True, self.app_icon)
+            except tk.TclError:
+                self.app_icon = None
         self.root.geometry(f"{min(1220, self.root.winfo_screenwidth()-60)}x{min(840, self.root.winfo_screenheight()-100)}")
         self.root.minsize(980, 700)
         self.root.configure(bg="#111511")

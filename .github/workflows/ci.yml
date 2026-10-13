@@ -87,7 +87,7 @@ jobs:
       - name: Install PyInstaller
         run: python -m pip install --upgrade pyinstaller
       - name: Build portable application
-        run: pyinstaller --noconfirm --clean --windowed --onedir --name Tuneka app.py
+        run: pyinstaller --noconfirm --clean --windowed --onedir --name Tuneka --icon assets/tuneka.ico --add-data "assets/tuneka.png;assets" app.py
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Add documentation and build installer

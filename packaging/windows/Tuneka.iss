@@ -15,6 +15,7 @@ DefaultDirName={autopf}\Tuneka
 DefaultGroupName={#AppName}
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExeName}
+SetupIconFile=..\..\assets\tuneka.ico
 LicenseFile=..\..\LICENSE
 OutputBaseFilename=Tuneka-Setup-x64
 OutputDir=..\..\dist
