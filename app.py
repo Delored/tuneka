@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import platform
 import re
@@ -12,6 +13,7 @@ import tempfile
 import threading
 import time
 import urllib.request
+from urllib.parse import urlparse
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
@@ -32,8 +34,11 @@ YTDLP_NAME = "yt-dlp.exe" if IS_WINDOWS else "yt-dlp"
 FFMPEG_NAME = "ffmpeg.exe" if IS_WINDOWS else "ffmpeg"
 YTDLP_PATH = BIN_DIR / YTDLP_NAME
 FFMPEG_PATH = BIN_DIR / FFMPEG_NAME
-YTDLP_LATEST = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/{}"
-FFMPEG_BASE = "https://raw.githubusercontent.com/imageio/imageio-binaries/master/ffmpeg/{}"
+TOOLS_INTEGRITY_PATH = BIN_DIR / "integrity.json"
+YTDLP_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+YTDLP_RELEASE_HOSTS = {"github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"}
+IMAGEIO_REPO_API = "https://api.github.com/repos/imageio/imageio-binaries"
+IMAGEIO_DOWNLOAD_HOSTS = {"raw.githubusercontent.com"}
 
 THEMES = {
     "olive": {
@@ -101,45 +106,185 @@ def validate_binary(path: Path, version_arg: str) -> bool:
         return False
 
 
-def download_file(url: str, target: Path, progress) -> None:
-    temporary = target.with_name(target.name + ".download")
-    request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
+def file_sha256(path: Path) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            size += len(chunk)
+            digest.update(chunk)
+    return size, digest.hexdigest()
+
+
+def cached_tool_is_verified(path: Path, name: str, version_arg: str) -> bool:
+    """Only reuse a tool when its bytes match the digest saved after a verified download."""
     try:
-        with urllib.request.urlopen(request, timeout=45) as response, temporary.open("wb") as output:
-            total = int(response.headers.get("Content-Length", "0"))
-            received = 0
+        record = json.loads(TOOLS_INTEGRITY_PATH.read_text(encoding="utf-8"))[name]
+        size, digest = file_sha256(path)
+        return (record.get("size") == size and record.get("sha256") == digest
+                and validate_binary(path, version_arg))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def record_verified_tool(name: str, size: int, sha256: str, source: str) -> None:
+    try:
+        records = json.loads(TOOLS_INTEGRITY_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        records = {}
+    records[name] = {"size": size, "sha256": sha256, "source": source}
+    fd, temporary_name = tempfile.mkstemp(prefix=".integrity.", suffix=".json", dir=TOOLS_INTEGRITY_PATH.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            json.dump(records, output, indent=2)
+            output.write("\n")
+        temporary.replace(TOOLS_INTEGRITY_PATH)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+class _AllowedHTTPSRedirects(urllib.request.HTTPRedirectHandler):
+    def __init__(self, allowed_hosts: set[str]):
+        super().__init__()
+        self.allowed_hosts = allowed_hosts
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlparse(newurl)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if parsed.scheme != "https" or host not in self.allowed_hosts:
+            raise RuntimeError("Завантаження перенаправлено на недозволене джерело.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def latest_ytdlp_asset(asset_name: str) -> tuple[str, int, str]:
+    request = urllib.request.Request(
+        YTDLP_RELEASE_API,
+        headers={"User-Agent": "Tuneka/1.0", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"},
+    )
+    api_opener = urllib.request.build_opener(_AllowedHTTPSRedirects({"api.github.com"}))
+    with api_opener.open(request, timeout=30) as response:
+        if urlparse(response.geturl()).hostname != "api.github.com":
+            raise RuntimeError("GitHub API перенаправив запит на неочікуваний хост.")
+        metadata = json.loads(response.read(2 * 1024 * 1024))
+    if metadata.get("html_url", "").rstrip("/") != "https://github.com/yt-dlp/yt-dlp/releases/tag/" + str(metadata.get("tag_name", "")):
+        raise RuntimeError("GitHub повернув неочікувані метадані релізу yt-dlp.")
+    tag_name = str(metadata.get("tag_name", ""))
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", tag_name):
+        raise RuntimeError("Назва релізу yt-dlp має неочікуваний формат.")
+    asset = next((item for item in metadata.get("assets", []) if item.get("name") == asset_name), None)
+    if not asset:
+        raise RuntimeError(f"Офіційний реліз yt-dlp не містить файл {asset_name}.")
+    download_url = asset.get("browser_download_url", "")
+    parsed = urlparse(download_url)
+    if parsed.scheme != "https" or parsed.hostname != "github.com" or parsed.path != f"/yt-dlp/yt-dlp/releases/download/{tag_name}/{asset_name}":
+        raise RuntimeError("GitHub повернув неочікувану адресу yt-dlp.")
+    digest = asset.get("digest", "")
+    match = re.fullmatch(r"sha256:([0-9a-fA-F]{64})", digest)
+    size = asset.get("size")
+    if not match or not isinstance(size, int) or size <= 0 or size > 100 * 1024 * 1024:
+        raise RuntimeError("Для yt-dlp немає коректної контрольної суми або розмір файлу неочікуваний.")
+    return download_url, size, match.group(1).lower()
+
+
+def latest_ffmpeg_asset(asset_name: str) -> tuple[str, int, str]:
+    """Resolve an ImageIO binary through its Git tree, then pin the download to that commit."""
+    api_opener = urllib.request.build_opener(_AllowedHTTPSRedirects({"api.github.com"}))
+    headers = {"User-Agent": "Tuneka/1.0", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    with api_opener.open(urllib.request.Request(IMAGEIO_REPO_API + "/commits/master", headers=headers), timeout=30) as response:
+        commit_info = json.loads(response.read(1024 * 1024))
+        if urlparse(response.geturl()).hostname != "api.github.com":
+            raise RuntimeError("GitHub API перенаправив запит на неочікуваний хост.")
+    commit_sha = commit_info.get("sha", "")
+    tree_sha = commit_info.get("commit", {}).get("tree", {}).get("sha", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit_sha) or not re.fullmatch(r"[0-9a-f]{40}", tree_sha):
+        raise RuntimeError("Не вдалося перевірити коміт репозиторію бінарників ImageIO.")
+    with api_opener.open(urllib.request.Request(IMAGEIO_REPO_API + f"/git/trees/{tree_sha}?recursive=1", headers=headers), timeout=30) as response:
+        tree_info = json.loads(response.read(5 * 1024 * 1024))
+        if urlparse(response.geturl()).hostname != "api.github.com":
+            raise RuntimeError("GitHub API перенаправив запит на неочікуваний хост.")
+    if tree_info.get("truncated"):
+        raise RuntimeError("Не вдалося повністю перевірити дерево репозиторію ImageIO.")
+    repo_path = f"ffmpeg/{asset_name}"
+    blob = next((item for item in tree_info.get("tree", []) if item.get("path") == repo_path), None)
+    if not blob or blob.get("type") != "blob" or not isinstance(blob.get("size"), int):
+        raise RuntimeError(f"Репозиторій ImageIO не містить очікуваний FFmpeg: {asset_name}.")
+    blob_sha = blob.get("sha", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", blob_sha) or blob["size"] <= 0 or blob["size"] > 300 * 1024 * 1024:
+        raise RuntimeError("Розмір або Git blob SHA бінарника FFmpeg неочікуваний.")
+    url = f"https://raw.githubusercontent.com/imageio/imageio-binaries/{commit_sha}/{repo_path}"
+    return url, blob["size"], blob_sha
+
+
+def download_verified_file(url: str, target: Path, expected_size: int, expected_sha256: str | None,
+                           expected_git_blob_sha1: str | None,
+                           allowed_hosts: set[str], progress) -> Path:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in allowed_hosts:
+        raise RuntimeError("Відхилено завантаження з недозволеного джерела.")
+    request = urllib.request.Request(url, headers={"User-Agent": "Tuneka/1.0"})
+    opener = urllib.request.build_opener(_AllowedHTTPSRedirects(allowed_hosts))
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".download", dir=target.parent)
+    temporary = Path(temporary_name)
+    digest = hashlib.sha256()
+    git_blob_digest = hashlib.sha1(f"blob {expected_size}\0".encode("ascii"))
+    received = 0
+    try:
+        with os.fdopen(fd, "wb") as output, opener.open(request, timeout=45) as response:
+            final = urlparse(response.geturl())
+            if final.scheme != "https" or (final.hostname or "").lower() not in allowed_hosts:
+                raise RuntimeError("Фактичне джерело завантаження не пройшло перевірку.")
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) != expected_size:
+                raise RuntimeError("Розмір відповіді не збігається з офіційними метаданими.")
             while True:
                 chunk = response.read(1024 * 256)
                 if not chunk:
                     break
-                output.write(chunk)
                 received += len(chunk)
-                progress(received, total)
-        temporary.replace(target)
+                if received > expected_size:
+                    raise RuntimeError("Завантажений файл більший за офіційний розмір.")
+                output.write(chunk)
+                digest.update(chunk)
+                git_blob_digest.update(chunk)
+                progress(received, expected_size)
+        sha256_ok = expected_sha256 is None or digest.hexdigest() == expected_sha256
+        blob_ok = expected_git_blob_sha1 is None or git_blob_digest.hexdigest() == expected_git_blob_sha1
+        if received != expected_size or not sha256_ok or not blob_ok:
+            raise RuntimeError("Контрольна сума або розмір завантаженого файлу не збігаються.")
+        if not IS_WINDOWS:
+            temporary.chmod(0o755)
+        return temporary
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
-    if not IS_WINDOWS:
-        target.chmod(target.stat().st_mode | 0o755)
 
 
 def ensure_tools(progress, force: bool = False) -> None:
     BIN_DIR.mkdir(parents=True, exist_ok=True)
     ytdlp_asset, ffmpeg_asset = tool_assets()
-    for path, url, label, version_arg in (
-        (YTDLP_PATH, YTDLP_LATEST.format(ytdlp_asset), "yt-dlp", "--version"),
-        (FFMPEG_PATH, FFMPEG_BASE.format(ffmpeg_asset), "ffmpeg", "-version"),
+    for path, asset_name, label, version_arg, resolve_asset, allowed_hosts, digest_kind in (
+        (YTDLP_PATH, ytdlp_asset, "yt-dlp", "--version", latest_ytdlp_asset, YTDLP_RELEASE_HOSTS, "sha256"),
+        (FFMPEG_PATH, ffmpeg_asset, "ffmpeg", "-version", latest_ffmpeg_asset, IMAGEIO_DOWNLOAD_HOSTS, "git_blob"),
     ):
-        if not force and validate_binary(path, version_arg):
+        if not force and cached_tool_is_verified(path, label, version_arg):
             continue
         progress(f"Завантажую {label} у resources/bin…", 0)
-        download_file(url, path, lambda done, total, name=label: progress(
-            f"Завантажую {name}…" if not total else f"Завантажую {name}… {done * 100 // total}%",
-            0 if not total else done * 100 // total,
-        ))
-        if not validate_binary(path, version_arg):
-            path.unlink(missing_ok=True)
-            raise RuntimeError(f"Завантажений файл {label} не запускається на цій системі.")
+        url, size, expected_digest = resolve_asset(asset_name)
+        sha256 = expected_digest if digest_kind == "sha256" else None
+        git_blob_sha1 = expected_digest if digest_kind == "git_blob" else None
+        staged = download_verified_file(url, path, size, sha256, git_blob_sha1, allowed_hosts,
+            lambda done, total, name=label: progress(f"Завантажую {name}… {done * 100 // total}%", done * 100 // total))
+        try:
+            if not validate_binary(staged, version_arg):
+                raise RuntimeError(f"Перевірений файл {label} не запускається на цій системі.")
+            local_size, local_sha256 = file_sha256(staged)
+            if local_size != size:
+                raise RuntimeError(f"Розмір перевіреного файлу {label} змінився перед встановленням.")
+            staged.replace(path)
+            record_verified_tool(label, local_size, local_sha256, url)
+        finally:
+            staged.unlink(missing_ok=True)
     progress("Інструменти готові.", 100)
 
 
