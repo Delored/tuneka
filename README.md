@@ -1,37 +1,49 @@
-# Tracksplit
+# Tuneka
 
-Tracksplit — нативний desktop-застосунок на Tkinter. Він читає розділи YouTube-відео, завантажує аудіо один раз, нарізає вибрані розділи та зберігає їх окремими MP3 з назвами з відео.
+Tuneka is a desktop application for downloading YouTube music mixes, playlists, and videos. It can split a chaptered mix into separate MP3 tracks, keeping the chapter titles and video cover art. A video without chapters is saved as a single track.
 
-## Перший запуск
+## Features
 
-Потрібен Python 3 із Tkinter та доступ до інтернету. `yt-dlp` і `ffmpeg` не потрібно встановлювати в системі: застосунок завантажує сумісні виконувані файли до `resources/bin/` та запускає їх звідти.
+- **Music by chapters:** Choose chapters and save them as individual MP3 files with embedded cover art.
+- **Playlists:** Select the videos you want and download each as an MP3 or a video file.
+- **Single videos:** Choose a resolution and a container: MP4, MKV, or WebM.
+- **Download controls:** View progress, pause and resume, or cancel an active download.
+- **Preferences:** Set the download folder, default video quality and format, playlist format, color theme, and interface language.
+- **Localization:** Ukrainian and English interface languages.
+- **Themes:** Olive, purple, and light themes.
+
+## Requirements
+
+- Python 3
+- Tkinter (usually included with Python; on Ubuntu/Debian, install `python3-tk` if it is missing)
+- An internet connection for downloading media and the required tools
+
+You do not need to install `yt-dlp` or FFmpeg system-wide. Tuneka downloads platform-specific binaries on first launch and stores them in `resources/bin/`.
+
+## Run from source
+
+Clone the repository, then run:
 
 ```bash
 python3 app.py
 ```
 
-У Windows можна запустити `python app.py`. У Linux, якщо Tkinter відсутній у системному Python, встановіть пакет `python3-tk` через менеджер пакетів дистрибутива.
+On Windows, use:
 
-На першому запуску застосунок завантажує yt-dlp із [офіційних релізів yt-dlp](https://github.com/yt-dlp/yt-dlp/releases/latest) та платформний ffmpeg із [репозиторію imageio-binaries](https://github.com/imageio/imageio-binaries/tree/master/ffmpeg). Бінарники зберігаються в `resources/bin/`; кнопка «Оновити інструменти» завантажує їх повторно. Застосунок не шукає `yt-dlp` чи `ffmpeg` у системному `PATH`.
-
-## Файли
-
-За замовчуванням MP3 зберігаються в `downloads/` поруч із застосунком, у підтеці з назвою відео. Заборонені в назві теки символи замінюються пробілами. Кнопка «Вибрати теку…» дозволяє змінити батьківську теку; вибір запам'ятовується між запусками. «Відкрити теку» відкриває теку останнього завантаження.
-
-Повне аудіо та обкладинка відео використовуються лише як тимчасові файли для нарізання й автоматично видаляються після завершення або помилки. Обкладинка вбудовується в ID3-теги кожного MP3. Якщо формат зображення не підтримується локальним ffmpeg, застосунок усе одно збереже аудіо та попередить, що обкладинку не вдалося додати. MP3, залишені попередніми версіями застосунку, не видаляються автоматично.
-
-Підтримуються Windows x64/ARM64, macOS x64/Apple Silicon і Linux x64/ARM64. На Windows ARM64 для ffmpeg використовується x64 збірка під емуляцією Windows.
-
-## Інтерфейс
-
-Бічне меню перемикає музику, плейлисти, окремі відео та налаштування. Нижня панель містить теку, головну дію, прогрес і кнопки паузи та скасування. При зменшенні висоти вікна інтерфейс переходить у компактний вигляд.
-
-Кнопка «Вставити» бере посилання з буфера обміну. У списках клік перемикає вибір окремого рядка, Space — поточного рядка, Ctrl+A — усіх рядків. Поля якості й формату підтримують клавіші ↑/↓, Enter і Space. Клік по статусу відкриває його повний текст.
-
-Оливкова, фіолетова та світла теми доступні у випадних списках у верхній панелі й налаштуваннях. Українська та англійська мови перемикаються в налаштуваннях. Вибір теми й мови зберігається між запусками. [Дослідження та рішення щодо дизайну](docs/design.md).
-
-Перевірка UI (потрібен графічний дисплей або Xvfb; без мережевих завантажень):
-
-```bash
-python3 -m unittest discover -s tests -v
+```powershell
+python app.py
 ```
+
+Tuneka downloads `yt-dlp` from its [official GitHub releases](https://github.com/yt-dlp/yt-dlp/releases/latest) and FFmpeg from [imageio-binaries](https://github.com/imageio/imageio-binaries/tree/master/ffmpeg). Use **Update tools** in the app to download them again.
+
+Supported platforms: Windows x64 and ARM64, macOS x64 and Apple Silicon, and Linux x64 and ARM64.
+
+## Downloads and settings
+
+By default, files are saved under a `downloads/` folder beside the application. Music tracks and individual videos are placed in a subfolder named after the video; playlist downloads go into a folder named after the playlist. The destination folder can be changed in the app, and the selection is remembered between launches.
+
+Temporary source audio and cover files used while splitting a mix are removed when processing finishes. Cover art is embedded in the MP3 metadata. Settings, including the download folder, theme, language, and default formats, are saved in `settings.json` beside the application.
+
+## License
+
+Tuneka is licensed under the **GNU General Public License v3.0**. See [`LICENSE`](LICENSE) for the full text. The separately downloaded `yt-dlp` and FFmpeg binaries retain their own licenses.
