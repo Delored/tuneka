@@ -185,6 +185,102 @@ UK_TO_EN = {
     "треки": "tracks", "відео": "videos", "ВІДЕО": "VIDEO",
 }
 
+# Internal error messages are translated only when shown in a dialog. Unknown
+# lines (such as yt-dlp or ffmpeg diagnostics) are kept verbatim for debugging.
+ERROR_TO_EN = {
+    "Завантаження перенаправлено на недозволене джерело.":
+        "The download was redirected to an untrusted host.",
+    "GitHub API перенаправив запит на неочікуваний хост.":
+        "The GitHub API request was redirected to an unexpected host.",
+    "GitHub повернув неочікувані метадані релізу yt-dlp.":
+        "GitHub returned unexpected yt-dlp release metadata.",
+    "Назва релізу yt-dlp має неочікуваний формат.":
+        "The yt-dlp release name has an unexpected format.",
+    "GitHub повернув неочікувану адресу yt-dlp.":
+        "GitHub returned an unexpected yt-dlp download URL.",
+    "Для yt-dlp немає коректної контрольної суми або розмір файлу неочікуваний.":
+        "The yt-dlp checksum is invalid or its file size is unexpected.",
+    "Не вдалося перевірити коміт репозиторію бінарників ImageIO.":
+        "Could not verify the ImageIO binary repository commit.",
+    "Не вдалося повністю перевірити дерево репозиторію ImageIO.":
+        "Could not fully verify the ImageIO repository tree.",
+    "Розмір або Git blob SHA бінарника FFmpeg неочікуваний.":
+        "The FFmpeg binary size or Git blob SHA is unexpected.",
+    "Відхилено завантаження з недозволеного джерела.":
+        "Download from an untrusted source was blocked.",
+    "Фактичне джерело завантаження не пройшло перевірку.":
+        "The actual download source failed verification.",
+    "Розмір відповіді не збігається з офіційними метаданими.":
+        "The response size does not match the official metadata.",
+    "Завантажений файл більший за офіційний розмір.":
+        "The downloaded file is larger than the official size.",
+    "Контрольна сума або розмір завантаженого файлу не збігаються.":
+        "The downloaded file checksum or size does not match.",
+    "Не вдалося прочитати відео.": "Could not read the video.",
+    "Не вдалося прочитати плейлист.": "Could not read the playlist.",
+    "У плейлисті не знайдено доступних відео.":
+        "No available videos were found in the playlist.",
+    "Не знайдено вбудований ffmpeg. Онови інструменти й повтори завантаження.":
+        "The bundled ffmpeg was not found. Update the tools and try again.",
+    "Підтримуються формати MP4, MKV та WebM.":
+        "Supported formats are MP4, MKV, and WebM.",
+    "yt-dlp зберіг окремі аудіо- та відеопотоки замість готового відео. Перевір наявність ffmpeg і повтори завантаження.":
+        "yt-dlp saved separate audio and video streams instead of a playable video. Check that ffmpeg is available and try again.",
+    "Перевірте доступ до відео та інтернет-з'єднання.":
+        "Check that the video is accessible and that you are connected to the internet.",
+    "Помилка ffmpeg": "ffmpeg failed to process the media.",
+    "Не вдалося завантажити жодне відео.": "Could not download any videos.",
+    "Жодне відео не вдалося прочитати.": "Could not read any videos.",
+    "Не вдалося завантажити відео.": "Could not download the video.",
+    "Не вдалося завантажити вибрані треки.": "Could not download the selected tracks.",
+    "Пауза процесу наразі підтримується в Linux та macOS.":
+        "Pausing downloads is currently supported on Linux and macOS.",
+    "Продовження процесу наразі підтримується в Linux та macOS.":
+        "Resuming downloads is currently supported on Linux and macOS.",
+    "Зображення обкладинки перевищує допустимий розмір.":
+        "The cover image exceeds the allowed size.",
+}
+
+ERROR_PATTERNS = (
+    (re.compile(r"Платформа (.+) поки не підтримується\."),
+     lambda match: f"Platform {match.group(1)} is not supported yet."),
+    (re.compile(r"Офіційний реліз yt-dlp не містить файл (.+)\."),
+     lambda match: f"The official yt-dlp release does not contain {match.group(1)}."),
+    (re.compile(r"Репозиторій ImageIO не містить очікуваний FFmpeg: (.+)\."),
+     lambda match: f"The ImageIO repository does not contain the expected FFmpeg binary: {match.group(1)}."),
+    (re.compile(r"Перевірений файл (.+) не запускається на цій системі\."),
+     lambda match: f"The verified {match.group(1)} binary cannot run on this system."),
+    (re.compile(r"Розмір перевіреного файлу (.+) змінився перед встановленням\."),
+     lambda match: f"The verified {match.group(1)} file size changed before installation."),
+    (re.compile(r"yt-dlp не завантажив (відео|аудіо) \(код (\d+)\)\."),
+     lambda match: f"yt-dlp failed to download {'video' if match.group(1) == 'відео' else 'audio'} (exit code {match.group(2)})."),
+    (re.compile(r"yt-dlp не завантажив аудіо \(код (\d+)\):"),
+     lambda match: f"yt-dlp failed to download audio (exit code {match.group(1)}):"),
+    (re.compile(r"yt-dlp не завантажив аудіо \(код (\d+)\)\. Перевірте доступ до відео та інтернет-з'єднання\."),
+     lambda match: f"yt-dlp failed to download audio (exit code {match.group(1)}). Check that the video is accessible and that you are connected to the internet."),
+)
+
+
+def translate_error(text, language="uk"):
+    """Translate known application errors while preserving external diagnostics."""
+    text = str(text)
+    if language != "en":
+        return text
+
+    translated_lines = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        translated = ERROR_TO_EN.get(stripped)
+        if translated is None:
+            for pattern, render in ERROR_PATTERNS:
+                match = pattern.fullmatch(stripped)
+                if match:
+                    translated = render(match)
+                    break
+
+        translated_lines.append(translated if translated is not None else translate(line, language))
+    return "\n".join(translated_lines)
+
 
 def translate(text, language="uk"):
     """Translate known interface text while leaving media names and paths intact."""
