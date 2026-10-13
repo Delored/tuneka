@@ -5,6 +5,7 @@ import tempfile
 import tkinter as tk
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -67,6 +68,8 @@ class DesktopLayoutTests(unittest.TestCase):
                         for widget in (a.playlist_resolution, a.playlist_format, a.playlist_select_button):
                             self.assert_inside(widget, a.page_host)
                         self.assertGreaterEqual(a.playlist_tree.winfo_height(), 95)
+                    if page == 'music':
+                        self.assert_inside(a.music_format, a.page_host)
                     if page == 'options':
                         for widget in (a.options_theme, a.options_playlist_output, a.options_format):
                             self.assert_inside(widget, a.page_host)
@@ -96,6 +99,26 @@ class DesktopLayoutTests(unittest.TestCase):
         self.pump()
         self.assertTrue(a.tree.empty.winfo_ismapped())
         self.assertEqual(a.url.get(), '')
+
+    def test_control_a_selects_link_text_on_every_mode(self):
+        a = self.app
+        for page, variable, rounded_entry in (
+            ('music', a.url, a.url_entry),
+            ('playlist', a.playlist_url, a.playlist_url_entry),
+            ('video', a.video_url, a.video_url_entry),
+        ):
+            with self.subTest(entry=rounded_entry):
+                a._show_page(page)
+                self.pump()
+                variable.set('https://youtube.com/watch?v=abcdefghijk')
+                rounded_entry.entry.focus_force()
+                self.pump()
+                rounded_entry.entry.event_generate('<Control-a>')
+                self.pump()
+                self.assertTrue(rounded_entry.entry.selection_present())
+                rounded_entry.entry.event_generate('<BackSpace>')
+                self.pump()
+                self.assertEqual(variable.get(), '')
 
     def test_light_theme_is_persisted(self):
         with tempfile.TemporaryDirectory() as folder, patch('app.SETTINGS_PATH', Path(folder) / 'settings.json'):
@@ -160,6 +183,64 @@ class DesktopLayoutTests(unittest.TestCase):
         self.assertEqual(a.playlist_resolution.get(), '720p')
         a.playlist_format._choose('WebM')
         self.assertEqual(a.playlist_format.get(), 'WebM')
+
+    def test_quality_and_format_choices_are_saved_and_shared_between_modes(self):
+        a = self.app
+        saved = []
+        a._save_settings = lambda: saved.append(True)
+
+        a.video_resolution.set('1440p')
+        a._remember_video_preference(SimpleNamespace(widget=a.video_resolution))
+        self.assertEqual(a.default_video_resolution, '1440p')
+        self.assertEqual(a.playlist_resolution.get(), '1440p')
+        self.assertEqual(a.options_resolution.get(), '1440p')
+
+        a.playlist_format.set('WebM')
+        a._remember_video_preference(SimpleNamespace(widget=a.playlist_format))
+        self.assertEqual(a.default_video_format, 'webm')
+        self.assertEqual(a.video_format.get(), 'WebM')
+        self.assertEqual(a.options_format.get(), 'WebM')
+
+        a.options_playlist_music_format.set('FLAC')
+        a._remember_video_preference(SimpleNamespace(widget=a.options_playlist_music_format))
+        self.assertEqual(a.default_playlist_music_format, 'flac')
+        self.assertEqual(a.playlist_music_format.get(), 'FLAC')
+        self.assertEqual(a.music_format.get(), 'FLAC')
+        self.assertEqual(len(saved), 3)
+
+    def test_chapter_download_uses_the_selected_music_format(self):
+        a = self.app
+        a._save_settings = lambda: None
+        a.video = {'title': 'Mix', 'chapters': [{'index': 0, 'title': 'Track', 'start': 0, 'end': 30}]}
+        a.music_sources = [{'url': 'https://youtube.com/watch?v=abcdefghijk', 'video': a.video}]
+        if a.tree.exists('0'):
+            a.tree.delete('0')
+        a.tree.insert('', 'end', iid='0', values=('Track', '00:00'))
+        a.track_sources = {'0': {'source': 0, 'chapter': 0}}
+        a.tree.selection_set('0')
+        a.music_format.set('FLAC')
+        calls = []
+
+        class InlineThread:
+            def __init__(self, target, daemon=None):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        with tempfile.TemporaryDirectory() as folder, \
+                patch('app.threading.Thread', InlineThread), \
+                patch('app.split_video', side_effect=lambda *args, **kwargs: (
+                    calls.append(kwargs['audio_format']) or Path(folder), [Path(folder) / 'Track.flac'], False
+                )), \
+                patch.object(a.root, 'after', lambda *_args: None):
+            a.download_parent = Path(folder)
+            a._download()
+
+        self.assertEqual(calls, ['flac'])
+        a.busy = False
+        a.find_button.set_state('normal')
+        a.download_button.set_state('disabled')
 
 
 if __name__ == '__main__':

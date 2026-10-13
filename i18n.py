@@ -39,8 +39,8 @@ UK_TO_EN = {
     "Встав посилання на YouTube-плейлист, щоб вибрати відео.":
         "Paste a YouTube playlist link to choose videos.",
     "Твій наступний плейлист.": "Your next playlist.",
-    "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.":
-        "A YouTube mix becomes separate MP3 files with titles and cover art. No chapters? One track.",
+    "Мікс із YouTube → окремі музичні файли з назвами й обкладинкою. Без розділів — один трек.":
+        "A YouTube mix becomes separate music files with titles and cover art. No chapters? One track.",
     "Відео, яке лишається з тобою.": "Video that stays with you.",
     "Додати кілька…": "Add multiple…",
     "Додати": "Add",
@@ -57,14 +57,15 @@ UK_TO_EN = {
         "Choose the quality and format. Watch your favorites whenever you like.",
     "Встав посилання на відео з розділами — отримай окремі MP3. Якщо розділів немає, відео стане одним треком.":
         "Paste a video link with chapters to get separate MP3 files. Without chapters, the video becomes one track.",
-    "Вибери відео з плейлиста й завантаж їх як окремі MP3 або відеофайли.":
-        "Choose videos from a playlist and download them as separate MP3 or video files.",
+    "Вибери відео з плейлиста й завантаж їх як музику або відеофайли.":
+        "Choose videos from a playlist and download them as music or video files.",
     "Збережи окреме відео у вибраній якості та стандартному контейнері.":
         "Save a video at the selected quality and in a standard format.",
     "Задай теки та формати, які Tuneka використовуватиме за замовчуванням.":
         "Set the folders and formats Tuneka will use by default.",
     "Треки": "Tracks", "MP3 · з обкладинкою": "MP3 · with cover art",
     "ФОРМАТ ЗАВАНТАЖЕННЯ": "DOWNLOAD FORMAT",
+    "Музика": "Music", "МУЗИЧНИЙ ФОРМАТ": "MUSIC FORMAT",
     "MP3 · 1 файл на відео": "MP3 · 1 file per video",
     "MP3 · один файл на відео": "MP3 · one file per video",
     "ЯКІСТЬ": "QUALITY", "ФОРМАТ": "FORMAT",
@@ -119,8 +120,8 @@ UK_TO_EN = {
     "Підпапок: ": "Subfolders: ",
     "У плейлисті ": "Playlist has ",
     " відео. Вибери потрібні й завантаж.": " videos. Select the ones you want and download them.",
-    "Вибери треки й натисни «Завантажити вибрані MP3».":
-        "Select tracks and click ‘Download selected MP3’.",
+    "Вибери треки й натисни «Завантажити вибрані».":
+        "Select tracks and click ‘Download selected’.",
     "Теку вибрано, але не вдалося зберегти вибір:": "Folder selected, but the choice could not be saved:",
     "Під час завантаження сталася помилка.": "An error occurred during download.",
     "Завантажити плейлист": "Download playlist",
@@ -155,10 +156,12 @@ UK_TO_EN = {
     "Скасовую завантаження…": "Cancelling download…",
     "Оновлюю бінарники…": "Updating tools…",
     "Готово до завантаження:": "Ready to download:",
-    "Вибери треки й натисни «Завантажити вибрані MP3».":
-        "Select tracks and click ‘Download selected MP3’.",
+    "Вибери треки й натисни «Завантажити вибрані».":
+        "Select tracks and click ‘Download selected’.",
     "Завантажую відео…": "Downloading video…",
     "Завантажую аудіо з YouTube…": "Downloading audio from YouTube…",
+    "Повторюю завантаження після тимчасової відмови YouTube…":
+        "Retrying after a temporary YouTube refusal…",
     "Перевіряю інструменти…": "Checking tools…",
     "Готово до роботи. Додай посилання, щоб почати.": "Ready. Add a link to get started.",
     "Не вдалося підготувати інструменти.": "Could not prepare tools.",
