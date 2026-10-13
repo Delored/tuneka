@@ -17,6 +17,7 @@ from pathlib import Path
 from tkinter import filedialog, ttk
 from tkinter import font as tkfont
 from urllib.parse import urlparse
+from ui import FONT, WaveMark, MediaList, EmptyState, Choice, rounded as draw_aa_rounded
 
 ROOT = Path(__file__).resolve().parent
 RESOURCES = ROOT / "resources"
@@ -34,24 +35,34 @@ FFMPEG_BASE = "https://raw.githubusercontent.com/imageio/imageio-binaries/master
 
 THEMES = {
     "olive": {
-        "label": "Оливкова", "bg": "#151911", "card": "#20261b", "ink": "#f0f3e9",
-        "muted": "#a1aa95", "accent": "#c9ed72", "accent_text": "#263218", "accent_hover": "#d6f68b",
-        "field": "#181d14", "border": "#343d2d", "outline": "#3a4430", "heading": "#282f23",
-        "table_fg": "#dce3d2", "selected": "#3c4d2d", "selected_fg": "#f2f7e9",
-        "scrollbar": "#343d2d", "progress_trough": "#2a3124", "disabled": "#343c2b",
+        "label": "Оливкова", "bg": "#111511", "card": "#1b211c", "ink": "#f0f4ed",
+        "muted": "#9aa797", "accent": "#c4e88a", "accent_text": "#223017", "accent_hover": "#d6f4a5",
+        "field": "#141a15", "border": "#343e32", "outline": "#3c4937", "heading": "#202821",
+        "table_fg": "#dce3d2", "selected": "#34442c", "selected_fg": "#f2f7e9",
+        "scrollbar": "#343e32", "progress_trough": "#2a3124", "disabled": "#343c2b",
         "disabled_text": "#89917d", "focus": "#8fae52", "entry_select": "#506b32",
         "secondary": "#2a3025", "secondary_hover": "#353e2d", "secondary_text": "#e8eddf",
         "secondary_disabled": "#252a21", "secondary_disabled_text": "#79806f",
     },
     "purple": {
-        "label": "Фіолетова", "bg": "#17131f", "card": "#211a2d", "ink": "#f2eafa",
-        "muted": "#b1a4bf", "accent": "#c49aff", "accent_text": "#2d1d3c", "accent_hover": "#d3b4ff",
-        "field": "#1b1625", "border": "#392d49", "outline": "#49395b", "heading": "#2a2238",
-        "table_fg": "#e3d9ed", "selected": "#49345f", "selected_fg": "#fff8ff",
-        "scrollbar": "#40334f", "progress_trough": "#30263d", "disabled": "#393143",
+        "label": "Фіолетова", "bg": "#111018", "card": "#1c1927", "ink": "#f4f0ff",
+        "muted": "#aaa1bc", "accent": "#bfa0f5", "accent_text": "#241739", "accent_hover": "#d2b9ff",
+        "field": "#15121e", "border": "#342b45", "outline": "#483959", "heading": "#211d30",
+        "table_fg": "#e3d9ed", "selected": "#372b4c", "selected_fg": "#fff8ff",
+        "scrollbar": "#453658", "progress_trough": "#30263f", "disabled": "#393143",
         "disabled_text": "#9589a2", "focus": "#aa7de2", "entry_select": "#624783",
-        "secondary": "#30283a", "secondary_hover": "#40354d", "secondary_text": "#eee5f5",
+        "secondary": "#2a2437", "secondary_hover": "#3c314c", "secondary_text": "#eee5f5",
         "secondary_disabled": "#292330", "secondary_disabled_text": "#8c8198",
+    },
+    "light": {
+        "label": "Світла", "bg": "#f3f2f7", "card": "#ffffff", "ink": "#242132",
+        "muted": "#686174", "accent": "#7150b8", "accent_text": "#fffefe", "accent_hover": "#60409f",
+        "field": "#faf9fc", "border": "#ddd7e6", "outline": "#c6bcd5", "heading": "#f4f0f8",
+        "table_fg": "#383140", "selected": "#e8ddfa", "selected_fg": "#3e2469",
+        "scrollbar": "#bdb2ce", "progress_trough": "#e5dfee", "disabled": "#e6e0ed",
+        "disabled_text": "#80758d", "focus": "#8664ca", "entry_select": "#d9c6f5",
+        "secondary": "#eee9f5", "secondary_hover": "#e0d6ee", "secondary_text": "#443451",
+        "secondary_disabled": "#f1edf5", "secondary_disabled_text": "#8b8098",
     },
 }
 
@@ -604,21 +615,16 @@ def split_video(url: str, video: dict, selected: list[int], download_parent: Pat
 
 
 def draw_round_rect(canvas: tk.Canvas, width: int, height: int, radius: int, fill: str, outline: str = ""):
-    radius = min(radius, max(1, width // 2), max(1, height // 2))
-    points = [radius, 1, width - radius, 1, width - 1, 1, width - 1, radius,
-              width - 1, height - radius, width - 1, height - 1, width - radius, height - 1,
-              radius, height - 1, 1, height - 1, 1, height - radius, 1, radius, 1, 1]
-    return canvas.create_polygon(points, smooth=True, splinesteps=18, fill=fill, outline=outline,
-                                 width=1 if outline else 0, tags="shape")
+    return draw_aa_rounded(canvas, 0, 0, width, height, radius, fill, outline)
 
 
 class RoundedButton(tk.Frame):
     PALETTES = {
-        "primary": {"fill": "#c9ed72", "hover": "#d6f68b", "text": "#263218", "disabled": "#343c2b", "disabled_text": "#89917d"},
+        "primary": {"fill": "#c4e88a", "hover": "#d6f4a5", "text": "#223017", "disabled": "#343c2b", "disabled_text": "#89917d"},
         "secondary": {"fill": "#2a3025", "hover": "#353e2d", "text": "#e8eddf", "disabled": "#252a21", "disabled_text": "#79806f"},
     }
 
-    def __init__(self, master, text: str, command, *, variant="secondary", height=38, bg="#151911"):
+    def __init__(self, master, text: str, command, *, variant="secondary", height=38, bg="#111511"):
         super().__init__(master, bg=bg, bd=0, highlightthickness=0)
         self.label = text
         self.command = command
@@ -626,7 +632,7 @@ class RoundedButton(tk.Frame):
         self.button_height = height
         self.enabled = True
         self.hovered = False
-        self.font = tkfont.Font(family="TkDefaultFont", size=10, weight="bold" if variant == "primary" else "normal")
+        self.font = tkfont.Font(family=FONT, size=10, weight="bold" if variant == "primary" else "normal")
         self.button_width = self.font.measure(text) + (36 if variant == "primary" else 30)
         self.canvas = tk.Canvas(self, width=self.button_width, height=height, bg=bg,
                                 bd=0, highlightthickness=0, takefocus=1)
@@ -645,13 +651,17 @@ class RoundedButton(tk.Frame):
     def _draw(self, _event=None):
         if not hasattr(self, "canvas"):
             return
-        width = max(self.button_width, self.canvas.winfo_width())
+        width = self.canvas.winfo_width() if self.canvas.winfo_width() > 1 else self.button_width
         height = max(self.button_height, self.canvas.winfo_height())
         palette = self.PALETTES[self.variant]
         fill = palette["disabled"] if not self.enabled else palette["hover"] if self.hovered else palette["fill"]
         text_color = palette["disabled_text"] if not self.enabled else palette["text"]
         self.canvas.delete("all")
-        draw_round_rect(self.canvas, width, height, 14, fill)
+        if getattr(self, "navigation", False):
+            nav = getattr(self, "NAV_PALETTE", {"selected": "#34442c", "accent": "#c4e88a"})
+            fill = nav["selected"] if self.variant == "primary" else palette["hover"] if self.hovered else self.cget("bg")
+            text_color = nav["accent"] if self.variant == "primary" else palette["text"]
+        draw_round_rect(self.canvas, width, height, 18 if getattr(self, "navigation", False) else height // 2, fill)
         try:
             has_focus = self.canvas.focus_displayof() is self.canvas
         except (KeyError, tk.TclError):
@@ -659,9 +669,10 @@ class RoundedButton(tk.Frame):
             # example __tk_choosedir) that Tkinter cannot resolve to a Python
             # widget while mapping focus_displayof().
             has_focus = False
-        if has_focus:
+        if has_focus and not getattr(self, "navigation", False):
             draw_round_rect(self.canvas, width, height, 14, "", getattr(self, "FOCUS_COLOR", "#8fae52"))
-        self.canvas.create_text(width / 2, height / 2, text=self.label, fill=text_color,
+        self.canvas.create_text(16 if getattr(self, "navigation", False) else width / 2, height / 2,
+                                anchor="w" if getattr(self, "navigation", False) else "center", text=self.label, fill=text_color,
                                 font=self.font, tags="button-text")
         self.canvas.configure(cursor="hand2" if self.enabled else "arrow")
 
@@ -703,11 +714,11 @@ class RoundedButton(tk.Frame):
 
 
 class RoundedEntry(tk.Frame):
-    def __init__(self, master, textvariable: tk.StringVar, *, bg="#20261b", field="#181d14", fg="#edf1e6"):
+    def __init__(self, master, textvariable: tk.StringVar, *, bg="#1b211c", field="#141a15", fg="#edf1e6"):
         super().__init__(master, bg=bg, bd=0, highlightthickness=0, height=46)
         self.pack_propagate(False)
         self.field = field
-        self.border = "#3a4430"
+        self.border = "#3c4937"
         self.default_border = self.border
         self.focus_color = "#90b64c"
         self.text_color = fg
@@ -717,8 +728,14 @@ class RoundedEntry(tk.Frame):
         self.canvas.bind("<Configure>", self._draw)
         self.entry = tk.Entry(self.canvas, textvariable=textvariable, relief="flat", bd=0, highlightthickness=0,
                               bg=field, fg=fg, insertbackground=fg, selectbackground=self.selection_color,
-                              selectforeground="#ffffff", font=("TkDefaultFont", 11))
+                              selectforeground="#ffffff", font=(FONT, 11))
         self.entry.place(x=13, y=9, relwidth=1, width=-26, height=28)
+        self.variable = textvariable
+        self.placeholder = tk.Label(self.entry, text="Встав посилання на YouTube…", bg=field,
+                                    fg="#9aa797", font=(FONT, 10), anchor="w", cursor="xterm")
+        self.placeholder.bind("<Button-1>", lambda _e: self.entry.focus_set())
+        self.variable.trace_add("write", self._update_placeholder)
+        self._update_placeholder()
         self.entry.bind("<FocusIn>", self._focus_in)
         self.entry.bind("<FocusOut>", self._focus_out)
         self._draw()
@@ -729,11 +746,19 @@ class RoundedEntry(tk.Frame):
             self.canvas.delete("all")
             draw_round_rect(self.canvas, width, 46, 14, self.field, self.border)
 
+    def _update_placeholder(self, *_):
+        if self.variable.get() or str(self.tk.call("focus")) == str(self.entry):
+            self.placeholder.place_forget()
+        else:
+            self.placeholder.place(x=0, y=0, relwidth=1, relheight=1)
+
     def _focus_in(self, _event=None):
+        self._update_placeholder()
         self.border = self.focus_color
         self._draw()
 
     def _focus_out(self, _event=None):
+        self._update_placeholder()
         self.border = self.default_border
         self._draw()
 
@@ -835,7 +860,7 @@ class RoundedCard(tk.Frame):
         else:
             self.canvas.itemconfigure(self.window, width=inner_width)
         self.canvas.delete("shape")
-        draw_round_rect(self.canvas, event.width, event.height, self.radius, self.fill)
+        draw_round_rect(self.canvas, event.width, event.height, self.radius, self.fill, getattr(self, "border", ""))
         self.canvas.tag_lower("shape")
         self.canvas.itemconfigure(self.window, tags="card-content")
 
@@ -861,293 +886,363 @@ class TrackSplitApp:
         self.applied_theme = "olive"
         self.last_output_dir: Path | None = None
         self.download_controller: DownloadController | None = None
+        self.compact_elements = []
+        self.intro_titles = []
+        self._compact_pack = {}
+        self.compact = False
         self.root.title("Tracksplit")
-        self.root.geometry("1180x820")
-        self.root.minsize(980, 680)
-        self.root.configure(bg="#151911")
+        self.root.geometry(f"{min(1220, self.root.winfo_screenwidth()-60)}x{min(840, self.root.winfo_screenheight()-100)}")
+        self.root.minsize(980, 700)
+        self.root.configure(bg="#111511")
         self.style = ttk.Style()
         try:
             self.style.theme_use("clam")
         except tk.TclError:
             pass
-        self.style.configure("TFrame", background="#151911")
-        self.style.configure("Treeview", rowheight=36, font=("TkDefaultFont", 10),
-                             background="#20261b", fieldbackground="#20261b", foreground="#dce3d2",
-                             borderwidth=0, relief="flat", bordercolor="#20261b",
-                             lightcolor="#20261b", darkcolor="#20261b")
-        self.style.map("Treeview", background=[("selected", "#3c4d2d")],
+        self.style.configure("TFrame", background="#111511")
+        self.style.configure("Treeview", rowheight=46, font=(FONT, 10),
+                             background="#1b211c", fieldbackground="#1b211c", foreground="#dce3d2",
+                             borderwidth=0, relief="flat", bordercolor="#1b211c",
+                             lightcolor="#1b211c", darkcolor="#1b211c")
+        self.style.map("Treeview", background=[("selected", "#34442c")],
                        foreground=[("selected", "#f2f7e9")])
-        self.style.configure("Treeview.Heading", font=("TkDefaultFont", 9, "bold"),
-                             background="#282f23", foreground="#a5ae98", borderwidth=0,
-                             bordercolor="#20261b", lightcolor="#282f23", darkcolor="#282f23", padding=(12, 10))
+        self.style.configure("Treeview.Heading", font=(FONT, 9, "bold"),
+                             background="#202821", foreground="#a5ae98", borderwidth=0,
+                             bordercolor="#1b211c", lightcolor="#202821", darkcolor="#202821", padding=(12, 9))
         self.style.map("Treeview.Heading", background=[("active", "#333b2d")])
-        self.style.configure("TScrollbar", background="#343d2d", troughcolor="#20261b", borderwidth=0,
-                             bordercolor="#20261b", arrowcolor="#a1aa95", lightcolor="#343d2d",
-                             darkcolor="#343d2d", arrowsize=12)
+        self.style.layout("Vertical.TScrollbar", [("Vertical.Scrollbar.trough", {
+            "sticky": "ns", "children": [("Vertical.Scrollbar.thumb", {"expand": True, "sticky": "nswe"})]})])
+        self.style.configure("Vertical.TScrollbar", width=6, borderwidth=0)
+        self.style.configure("TScrollbar", background="#343e32", troughcolor="#1b211c", borderwidth=0,
+                             bordercolor="#1b211c", arrowcolor="#9aa797", lightcolor="#343e32",
+                             darkcolor="#343e32", arrowsize=12)
         self.style.configure("Horizontal.TProgressbar", troughcolor="#2a3124", background="#a9d65d",
                              bordercolor="#2a3124", lightcolor="#a9d65d", darkcolor="#a9d65d", thickness=6)
-        self.style.configure("TCombobox", fieldbackground="#181d14", background="#2a3025",
-                             foreground="#f0f3e9", arrowcolor="#a1aa95", bordercolor="#343d2d",
-                             lightcolor="#343d2d", darkcolor="#343d2d", padding=8)
-        self.style.map("TCombobox", fieldbackground=[("readonly", "#181d14")],
-                       foreground=[("readonly", "#f0f3e9")], selectbackground=[("readonly", "#3c4d2d")])
+        self.style.configure("TCombobox", fieldbackground="#141a15", background="#2a3025",
+                             foreground="#f0f4ed", arrowcolor="#9aa797", bordercolor="#343e32",
+                             lightcolor="#343e32", darkcolor="#343e32", padding=8)
+        self.style.map("TCombobox", fieldbackground=[("readonly", "#141a15")],
+                       foreground=[("readonly", "#f0f4ed")], selectbackground=[("readonly", "#34442c")])
         self._build_ui()
         self._apply_theme(self.theme_name, save=False)
         self.root.after(100, self._bootstrap_tools)
 
     def _build_ui(self):
-        bg, card, ink, muted, accent = "#151911", "#20261b", "#f0f3e9", "#a1aa95", "#c9ed72"
+        bg, card, ink, muted, accent = "#111511", "#1b211c", "#f0f4ed", "#9aa797", "#c4e88a"
         shell = tk.Frame(self.root, bg=bg)
         shell.pack(fill="both", expand=True)
-
-        self.sidebar = tk.Frame(shell, bg=card, width=210, padx=16, pady=20)
+        self.sidebar = tk.Frame(shell, bg=card, width=204, padx=14, pady=24)
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
         brand = tk.Frame(self.sidebar, bg=card)
-        brand.pack(fill="x", pady=(4, 30))
-        tk.Label(brand, text="♫", bg=accent, fg="#263218", width=2, height=1,
-                 font=("TkDefaultFont", 16, "bold")).pack(side="left", padx=(0, 10), ipady=3)
-        tk.Label(brand, text="TRACKSPLIT", bg=card, fg=ink,
-                 font=("TkDefaultFont", 12, "bold")).pack(side="left")
-
-        tk.Label(self.sidebar, text="РОБОЧІ РЕЖИМИ", bg=card, fg=muted,
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", padx=8, pady=(0, 8))
+        brand.pack(fill="x", padx=8, pady=(2, 34))
+        self.brand_mark = WaveMark(brand, bg=card, accent=accent, ink="#223017", size=36)
+        self.brand_mark.pack(side="left", padx=(0, 10))
+        tk.Label(brand, text="tracksplit", bg=card, fg=ink,
+                 font=(FONT, 16, "bold")).pack(side="left")
+        tk.Label(self.sidebar, text="ВАША КОЛЕКЦІЯ", bg=card, fg=muted,
+                 font=(FONT, 8, "bold")).pack(anchor="w", padx=14, pady=(0, 12))
         self.nav_buttons = {}
-        for key, label in (
-            ("music", "♫   Музика по розділах"),
-            ("playlist", "▤   Плейлист"),
-            ("video", "▶   Відео"),
-            ("options", "⚙   Опції"),
-        ):
+        for key, label in (("music", "♫   Музика"), ("playlist", "≡   Плейлисти"),
+                           ("video", "▷   Відео"), ("options", "⚙   Налаштування")):
             button = RoundedButton(self.sidebar, text=label, command=lambda page=key: self._show_page(page),
-                                   variant="secondary", height=42, bg=card)
+                                   variant="secondary", height=46, bg=card)
+            button.navigation = True
             button.pack(fill="x", pady=4)
             self.nav_buttons[key] = button
-        tk.Label(self.sidebar, text="yt-dlp  ·  ffmpeg", bg=card, fg=muted,
-                 font=("TkDefaultFont", 9)).pack(side="bottom", anchor="w", padx=8, pady=8)
+        bottom = tk.Frame(self.sidebar, bg=card)
+        bottom.pack(side="bottom", fill="x", padx=14)
+        tk.Label(bottom, text="Медіа, які завжди поруч.", bg=card, fg=ink,
+                 font=(FONT, 8)).pack(anchor="w", pady=(0, 5))
+        tk.Label(bottom, text="На вашому пристрої", bg=card, fg=muted,
+                 font=(FONT, 7)).pack(anchor="w")
 
-        self.workspace = tk.Frame(shell, bg=bg, padx=28, pady=14)
+        self.workspace = tk.Frame(shell, bg=bg, padx=26, pady=18)
         self.workspace.pack(side="left", fill="both", expand=True)
-        topbar = tk.Frame(self.workspace, bg=bg)
-        topbar.pack(fill="x", pady=(0, 18))
-        self.page_title = tk.Label(topbar, text="Музика по розділах", bg=bg, fg=ink,
-                                   font=("TkDefaultFont", 16, "bold"), anchor="w")
+        self.workspace.columnconfigure(0, weight=1)
+        self.workspace.rowconfigure(1, weight=1)
+        topbar = self.topbar = tk.Frame(self.workspace, bg=bg)
+        topbar.grid(row=0, column=0, sticky="ew", pady=(0, 22))
+        self.page_title = tk.Label(topbar, text="", bg=bg, fg=muted, font=(FONT, 10), anchor="w")
         self.page_title.pack(side="left")
-        self.update_button = RoundedButton(topbar, text="Оновити інструменти", command=self._update_tools,
-                                           variant="secondary", height=36, bg=bg)
+        self.update_button = RoundedButton(topbar, text="↻  Оновити інструменти", command=self._update_tools,
+                                           variant="secondary", height=32, bg=bg)
         self.update_button.pack(side="right")
-        self.theme_button = RoundedButton(topbar, text="Тема: Оливкова", command=self._toggle_theme,
-                                          variant="secondary", height=36, bg=bg)
-        self.theme_button.pack(side="right", padx=(0, 9))
-
+        self.theme_selector = Choice(topbar, width=14, values=tuple(t["label"] for t in THEMES.values()))
+        self.theme_selector.pack(side="right", padx=(0, 8))
+        self.theme_selector.bind("<<ComboboxSelected>>", self._change_theme_from_selection)
         self.page_host = tk.Frame(self.workspace, bg=bg)
-        self.page_host.pack(fill="both", expand=True)
+        self.page_host.grid(row=1, column=0, sticky="nsew")
+        self.page_host.pack_propagate(False)
+
+        # The dock receives its natural height before the flexible media list.
+        # Its buttons stay visible even when the window becomes shorter.
+        self.footer_card = RoundedCard(self.workspace, bg=bg, fill=card, padding=16, radius=24)
+        self.footer_card.grid(row=2, column=0, sticky="ew", pady=(16, 0))
+        footer = self.footer_card.content
+        destination_row = tk.Frame(footer, bg=card)
+        destination_row.pack(fill="x")
+        self.action_host = tk.Frame(destination_row, bg=card)
+        self.action_host.pack(side="right", padx=(14, 0))
+        self.choose_folder_button = RoundedButton(destination_row, text="Змінити…",
+                                                  command=self._choose_download_parent,
+                                                  variant="secondary", height=38, bg=card)
+        self.choose_folder_button.pack(side="right", padx=(10, 0))
+        destination_text = tk.Frame(destination_row, bg=card)
+        destination_text.pack(side="left", fill="x", expand=True)
+        tk.Label(destination_text, text="ЗБЕРЕГТИ В", bg=card, fg=muted,
+                 font=(FONT, 8, "bold")).pack(anchor="w")
+        self.destination_label = tk.Label(destination_text, text=str(self.download_parent), bg=card, fg=ink,
+                                          font=(FONT, 9), anchor="w")
+        self.destination_label.pack(fill="x", pady=(4, 0))
+        self.destination_label.bind("<Configure>", self._fit_destination)
+        self.status = tk.StringVar(value="Перевіряю інструменти…")
+        self.status_label = tk.Label(footer, textvariable=self.status, bg=card, fg=muted,
+                                     font=(FONT, 9), anchor="w", cursor="hand2")
+        self.status_label.pack(anchor="w", fill="x", pady=(14, 8))
+        self.status_label.bind("<Button-1>", lambda _e: self._show_dialog("Стан завантаження", self.status.get()))
+        self.progress = AnimatedProgressBar(footer, bg=card, trough="#2a3124", fill=accent, height=6)
+        self.progress.pack(fill="x")
+        self.download_controls = tk.Frame(footer, bg=card)
+        self.pause_download_button = RoundedButton(self.download_controls, text="Пауза",
+            command=self._toggle_download_pause, variant="secondary", height=32, bg=card)
+        self.pause_download_button.pack(side="left")
+        self.cancel_download_button = RoundedButton(self.download_controls, text="Скасувати",
+            command=self._cancel_download, variant="secondary", height=32, bg=card)
+        self.cancel_download_button.pack(side="left", padx=(8, 0))
+        self.open_folder_button = RoundedButton(self.download_controls, text="Відкрити теку  ↗",
+            command=self._open_downloads, variant="secondary", height=32, bg=card)
+        self.open_folder_button.pack(side="right")
+        self.download_controls.pack(fill="x", pady=(10, 0))
+        self.pause_download_button.set_state("disabled")
+        self.cancel_download_button.set_state("disabled")
+
         self.pages = {}
-        for key, builder in (
-            ("music", self._build_music_page),
-            ("playlist", self._build_playlist_page),
-            ("video", self._build_video_page),
-            ("options", self._build_options_page),
-        ):
+        for key, builder in (("music", self._build_music_page), ("playlist", self._build_playlist_page),
+                             ("video", self._build_video_page), ("options", self._build_options_page)):
             page = tk.Frame(self.page_host, bg=bg)
             self.pages[key] = page
             builder(page)
-
-        footer = tk.Frame(self.workspace, bg=bg)
-        footer.pack(side="bottom", fill="x", pady=(6, 0))
-        destination = RoundedCard(footer, bg=bg, fill=card, padding=9, radius=18)
-        destination.pack(fill="x")
-        destination_row = tk.Frame(destination.content, bg=card)
-        destination_row.pack(fill="x")
-        tk.Label(destination_row, text="ЗБЕРІГАТИ В", bg=card, fg=muted,
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 14))
-        self.destination_label = tk.Label(destination_row, text=str(self.download_parent), bg=card, fg="#b5beaa",
-                                          font=("TkDefaultFont", 9), anchor="w")
-        self.destination_label.pack(side="left", fill="x", expand=True)
-        self.choose_folder_button = RoundedButton(destination_row, text="Вибрати теку…",
-                                                  command=self._choose_download_parent,
-                                                  variant="secondary", height=34, bg=card)
-        self.choose_folder_button.pack(side="right", padx=(8, 0))
-        self.open_folder_button = RoundedButton(destination_row, text="Відкрити",
-                                                command=self._open_downloads,
-                                                variant="secondary", height=34, bg=card)
-        self.open_folder_button.pack(side="right")
-
-        self.status = tk.StringVar(value="Перевіряю інструменти застосунку…")
-        self.status_label = tk.Label(footer, textvariable=self.status, bg=bg, fg=muted,
-                                     font=("TkDefaultFont", 9), anchor="w", justify="left", wraplength=900)
-        self.status_label.pack(anchor="w", fill="x", pady=(10, 5))
-        self.progress = AnimatedProgressBar(footer, bg=bg, trough="#2a3124", fill="#a9d65d", height=9)
-        self.progress.pack(fill="x", pady=(0, 2))
-
-        self.download_controls = tk.Frame(footer, bg=bg)
-        self.pause_download_button = RoundedButton(
-            self.download_controls, text="Пауза", command=self._toggle_download_pause,
-            variant="secondary", height=30, bg=bg,
-        )
-        self.pause_download_button.pack(side="right", padx=(8, 0))
-        self.cancel_download_button = RoundedButton(
-            self.download_controls, text="Скасувати", command=self._cancel_download,
-            variant="secondary", height=30, bg=bg,
-        )
-        self.cancel_download_button.pack(side="right")
-        self.download_controls.pack(fill="x", pady=(4, 0))
-        self.download_controls.pack_forget()
         self._show_page("music")
+        self.workspace.bind("<Configure>", self._adapt_layout)
+
+    def _fit_destination(self, _event=None):
+        path = str(self.download_parent)
+        font = tkfont.Font(font=self.destination_label.cget("font"))
+        width = max(30, self.destination_label.winfo_width() - 6)
+        display = path
+        while len(display) > 4 and font.measure(display) > width:
+            display = "…" + display[2:]
+        self.destination_label.configure(text=display)
+
+    def _adapt_layout(self, _event=None):
+        compact = self.root.winfo_height() < 780
+        for title in self.intro_titles:
+            title.configure(font=(FONT, 21 if compact else 25, "bold"))
+        if compact == self.compact:
+            return
+        self.compact = compact
+        self.topbar.grid_configure(pady=(0, 12 if compact else 22))
+        for widget in self.compact_elements:
+            if compact:
+                siblings = widget.master.pack_slaves()
+                index = siblings.index(widget)
+                following = siblings[index+1] if index+1 < len(siblings) else None
+                self._compact_pack[widget] = (widget.pack_info(), following)
+                widget.pack_forget()
+            else:
+                options, following = self._compact_pack[widget]
+                options.pop("in", None)
+                if following is not None:
+                    options["before"] = following
+                widget.pack(**options)
+        for widget in self._walk_widgets(self.root):
+            if isinstance(widget, RoundedCard) and not widget.expand_content:
+                widget.after_idle(widget._fit_height)
 
     def _page_intro(self, parent, title, description):
-        tk.Label(parent, text=title, bg="#151911", fg="#f0f3e9",
-                 font=("TkDefaultFont", 23, "bold")).pack(anchor="w")
-        tk.Label(parent, text=description, bg="#151911", fg="#a1aa95",
-                 font=("TkDefaultFont", 10), wraplength=880, justify="left").pack(anchor="w", pady=(5, 16))
+        label = tk.Label(parent, text=title, bg="#111511", fg="#f0f4ed",
+                         font=(FONT, 25, "bold"))
+        label.pack(anchor="w", pady=(0, 8))
+        self.intro_titles.append(label)
+        subtitle = tk.Label(parent, text=description, bg="#111511", fg="#9aa797",
+                            font=(FONT, 10), wraplength=880, justify="left")
+        subtitle.pack(anchor="w", pady=(0, 16))
+        self.compact_elements.append(subtitle)
 
     def _source_card(self, parent, variable, button_text, command):
-        card = RoundedCard(parent, bg="#151911", fill="#20261b", padding=18, radius=20)
+        card = RoundedCard(parent, bg="#111511", fill="#1b211c", padding=16, radius=24)
         card.pack(fill="x")
-        tk.Label(card.content, text="ПОСИЛАННЯ НА YOUTUBE", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 9, "bold")).pack(anchor="w", pady=(0, 9))
-        row = tk.Frame(card.content, bg="#20261b")
+        caption = tk.Label(card.content, text="ПОСИЛАННЯ НА YOUTUBE", bg="#1b211c", fg="#9aa797",
+                           font=(FONT, 9, "bold"))
+        caption.pack(anchor="w", pady=(0, 9))
+        self.compact_elements.append(caption)
+        row = tk.Frame(card.content, bg="#1b211c")
         row.pack(fill="x")
-        entry = RoundedEntry(row, textvariable=variable, bg="#20261b", field="#181d14", fg="#f0f3e9")
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        button = RoundedButton(row, text=button_text, command=command, variant="primary", height=44, bg="#20261b")
+        entry = RoundedEntry(row, textvariable=variable, bg="#1b211c", field="#141a15", fg="#f0f4ed")
+
+        button = RoundedButton(row, text=button_text, command=command, variant="primary", height=40, bg="#1b211c")
         button.pack(side="right")
+        paste = RoundedButton(row, text="Вставити", command=lambda: self._paste_url(variable, entry),
+                              variant="secondary", height=40, bg="#1b211c")
+        paste.pack(side="right", padx=(0, 8))
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
         entry.entry.bind("<Return>", lambda _event: command())
         return card, entry, button
 
+    def _paste_url(self, variable, entry):
+        try:
+            variable.set(self.root.clipboard_get().strip())
+            entry.entry.focus_set()
+        except tk.TclError:
+            self._set_status("Буфер обміну порожній. Скопіюй посилання з YouTube.")
+
     def _make_table(self, parent, columns, headings, widths):
-        card = RoundedCard(parent, bg="#151911", fill="#20261b", padding=9, radius=20, expand_content=True)
+        card = RoundedCard(parent, bg="#111511", fill="#1b211c", padding=12, radius=24, expand_content=True)
         card.pack(fill="both", expand=True)
-        tree = ttk.Treeview(card.content, columns=columns, show="headings", selectmode="extended")
+        music = columns[0] == "title"
+        tree = MediaList(card.content, columns=columns,
+                         empty_title="Кожен мікс починається з посилання" if music else "Улюблене — цілим плейлистом",
+                         empty_description="Додай посилання вище — тут з’являться треки для вибору." if music
+                         else "Встав посилання на YouTube-плейлист, щоб вибрати відео.")
         for column, heading, width in zip(columns, headings, widths):
-            tree.heading(column, text=heading)
+            tree.heading(column, text=heading.capitalize(), anchor="w")
             tree.column(column, anchor="w" if column not in ("start", "duration") else "e",
-                        width=width, minwidth=100 if column in ("title", "video") else width,
+                        width=100 if column in ("title", "video") else width,
+                        minwidth=100 if column in ("title", "video") else width,
                         stretch=column in ("title", "video"))
         scroll = ttk.Scrollbar(card.content, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scroll.set)
-        tree.pack(side="left", fill="both", expand=True, padx=(1, 0), pady=1)
-        scroll.pack(side="right", fill="y")
+        def update_scroll(first, last):
+            scroll.set(first, last)
+            if float(first) <= 0 and float(last) >= 1:
+                scroll.pack_forget()
+            elif not scroll.winfo_manager():
+                scroll.pack(side="right", fill="y", padx=(6, 0), before=tree)
+        tree.configure(yscrollcommand=update_scroll)
+        scroll.pack(side="right", fill="y", padx=(6, 0))
+        tree.pack(side="left", fill="both", expand=True)
         return tree
 
     def _build_music_page(self, page):
-        self._page_intro(page, "Музика по розділах",
-                         "Встав посилання на відео з розділами — отримай окремі MP3. Якщо розділів немає, відео стане одним треком.")
+        self._page_intro(page, "Твій наступний плейлист.",
+                         "Мікс із YouTube → окремі MP3 з назвами й обкладинкою. Без розділів — один трек.")
         self.url = tk.StringVar(value="")
         self.url.trace_add("write", self._music_url_changed)
         _, self.url_entry, self.find_button = self._source_card(page, self.url, "Знайти розділи  →",
                                                                 self._find_chapters)
-        row = tk.Frame(page, bg="#151911")
+        row = tk.Frame(page, bg="#111511")
         row.pack(fill="x", pady=(17, 8))
-        self.video_label = tk.Label(row, text="Треки з відео з’являться тут", bg="#151911", fg="#f0f3e9",
-                                    font=("TkDefaultFont", 12, "bold"), anchor="w")
-        self.video_label.pack(side="left", fill="x", expand=True)
-        self.chapter_count = tk.Label(row, text="РОЗДІЛИ", bg="#151911", fg="#a1aa95",
-                                      font=("TkDefaultFont", 9, "bold"))
+        self.video_label = tk.Label(row, text="Треки", bg="#111511", fg="#f0f4ed",
+                                    font=(FONT, 12, "bold"), anchor="w")
+        self.chapter_count = tk.Label(row, text="MP3 · з обкладинкою", bg="#111511", fg="#9aa797",
+                                      font=(FONT, 9, "bold"))
         self.chapter_count.pack(side="right", padx=(12, 14))
         self.select_button = RoundedButton(row, text="Зняти вибір", command=self._toggle_selection,
-                                           variant="secondary", height=34, bg="#151911")
+                                           variant="secondary", height=34, bg="#111511")
         self.select_button.set_state("disabled")
         self.select_button.pack(side="right")
+        self.video_label.pack(side="left", fill="x", expand=True)
         self.tree = self._make_table(page, ("title", "start"), ("НАЗВА ТРЕКУ", "ПОЧАТОК"), (650, 100))
-        self.download_button = RoundedButton(page, text="Завантажити вибрані MP3",
+        self.download_button = RoundedButton(self.action_host, text="↓  Завантажити MP3",
                                              command=self._download, variant="primary", height=42,
-                                             bg="#151911")
+                                             bg="#111511")
         self.download_button.set_state("disabled")
-        self.download_button.pack(anchor="w", pady=(12, 0))
 
     def _build_playlist_page(self, page):
-        self._page_intro(page, "Завантажити плейлист",
-                         "Вибери відео з плейлиста й завантаж їх як окремі MP3 або відеофайли.")
+        self._page_intro(page, "Уся добірка. Одним рухом.",
+                         "Вибери потрібне з плейлиста. Збережи як музику або відео.")
         self.playlist_url = tk.StringVar(value="")
         self.playlist = None
         self.playlist_url.trace_add("write", self._playlist_url_changed)
         _, self.playlist_url_entry, self.playlist_find_button = self._source_card(
             page, self.playlist_url, "Знайти відео  →", self._find_playlist)
-        self.playlist_controls_card = RoundedCard(page, bg="#151911", fill="#20261b", padding=14, radius=18)
+        self.playlist_controls_card = RoundedCard(page, bg="#111511", fill="#1b211c", padding=14, radius=18)
         self.playlist_controls_card.pack(fill="x", pady=(12, 0))
-        line = tk.Frame(self.playlist_controls_card.content, bg="#20261b")
+        line = tk.Frame(self.playlist_controls_card.content, bg="#1b211c")
         line.pack(fill="x")
-        tk.Label(line, text="ФОРМАТ ЗАВАНТАЖЕННЯ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 12))
+        tk.Label(line, text="ФОРМАТ ЗАВАНТАЖЕННЯ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(side="left", padx=(0, 12))
         self.playlist_output = tk.StringVar(value=self.default_playlist_output)
         self.playlist_mp3_button = RoundedButton(line, text="MP3 · 1 файл на відео",
                                                  command=lambda: self._set_playlist_output("mp3", persist=False),
-                                                 variant="primary", height=36, bg="#20261b")
+                                                 variant="primary", height=36, bg="#1b211c")
         self.playlist_mp3_button.pack(side="left", padx=(0, 7))
         self.playlist_video_button = RoundedButton(line, text="Відео",
                                                    command=lambda: self._set_playlist_output("video", persist=False),
-                                                   variant="secondary", height=36, bg="#20261b")
+                                                   variant="secondary", height=36, bg="#1b211c")
         self.playlist_video_button.pack(side="left")
-        self.playlist_video_options = tk.Frame(self.playlist_controls_card.content, bg="#20261b")
+        self.playlist_video_options = tk.Frame(self.playlist_controls_card.content, bg="#1b211c")
         self.playlist_video_options.pack(fill="x", pady=(12, 0))
-        tk.Label(self.playlist_video_options, text="ЯКІСТЬ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 8))
-        self.playlist_resolution = ttk.Combobox(self.playlist_video_options, state="readonly", width=20,
+        tk.Label(self.playlist_video_options, text="ЯКІСТЬ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
+        self.playlist_resolution = Choice(self.playlist_video_options, state="readonly", width=20,
                                                 values=("Автоматично", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
         self.playlist_resolution.pack(side="left", padx=(0, 18))
-        tk.Label(self.playlist_video_options, text="ФОРМАТ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 8))
-        self.playlist_format = ttk.Combobox(self.playlist_video_options, state="readonly", width=12,
+        tk.Label(self.playlist_video_options, text="ФОРМАТ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
+        self.playlist_format = Choice(self.playlist_video_options, state="readonly", width=12,
                                             values=("MP4", "MKV", "WebM"))
         self.playlist_format.pack(side="left")
         self.playlist_resolution.set("Автоматично" if self.default_video_resolution == "best" else self.default_video_resolution)
         self.playlist_format.set(self._video_format_label(self.default_video_format))
         self._set_playlist_output(self.playlist_output.get(), persist=False)
 
-        playlist_head = tk.Frame(page, bg="#151911")
+        playlist_head = tk.Frame(page, bg="#111511")
         playlist_head.pack(fill="x", pady=(16, 8))
-        self.playlist_title_label = tk.Label(playlist_head, text="Відео плейлиста з’являться тут",
-                                             bg="#151911", fg="#f0f3e9", font=("TkDefaultFont", 12, "bold"),
+        self.playlist_title_label = tk.Label(playlist_head, text="Відео плейлиста",
+                                             bg="#111511", fg="#f0f4ed", font=(FONT, 12, "bold"),
                                              anchor="w")
-        self.playlist_title_label.pack(side="left", fill="x", expand=True)
-        self.playlist_count_label = tk.Label(playlist_head, text="", bg="#151911", fg="#a1aa95",
-                                             font=("TkDefaultFont", 9, "bold"))
+        self.playlist_count_label = tk.Label(playlist_head, text="", bg="#111511", fg="#9aa797",
+                                             font=(FONT, 9, "bold"))
         self.playlist_count_label.pack(side="right", padx=(12, 14))
         self.playlist_select_button = RoundedButton(playlist_head, text="Зняти вибір",
                                                     command=self._toggle_playlist_selection,
-                                                    variant="secondary", height=34, bg="#151911")
+                                                    variant="secondary", height=34, bg="#111511")
         self.playlist_select_button.set_state("disabled")
         self.playlist_select_button.pack(side="right")
+        self.playlist_title_label.pack(side="left", fill="x", expand=True)
         self.playlist_tree = self._make_table(page, ("video", "duration"),
                                               ("ВІДЕО", "ТРИВАЛІСТЬ"), (650, 110))
-        self.playlist_download_button = RoundedButton(page, text="Завантажити вибрані",
+        self.playlist_download_button = RoundedButton(self.action_host, text="↓  Завантажити вибрані",
                                                       command=self._download_playlist,
-                                                      variant="primary", height=42, bg="#151911")
+                                                      variant="primary", height=42, bg="#111511")
         self.playlist_download_button.set_state("disabled")
-        self.playlist_download_button.pack(anchor="w", pady=(12, 0))
 
     def _build_video_page(self, page):
-        self._page_intro(page, "Завантажити відео",
-                         "Збережи окреме відео у вибраній якості та стандартному контейнері.")
+        self._page_intro(page, "Відео, яке лишається з тобою.",
+                         "Обери якість і формат. Дивись улюблене, коли зручно.")
         self.video_url = tk.StringVar(value="")
         self.video_info = None
         self.video_url.trace_add("write", self._video_url_changed)
         _, self.video_url_entry, self.video_check_button = self._source_card(
             page, self.video_url, "Перевірити посилання", self._prepare_video)
-        settings = RoundedCard(page, bg="#151911", fill="#20261b", padding=18, radius=20)
+        settings = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=20)
         settings.pack(fill="x", pady=(14, 0))
         self.video_resolution, self.video_format = self._build_video_options(settings.content, "ВІДЕО")
-        self.video_download_button = RoundedButton(page, text="Завантажити відео",
+        self.video_download_button = RoundedButton(self.action_host, text="↓  Завантажити відео",
                                                    command=self._download_video,
-                                                   variant="primary", height=42, bg="#151911")
+                                                   variant="primary", height=42, bg="#111511")
         self.video_download_button.set_state("disabled")
-        self.video_download_button.pack(anchor="w", pady=(14, 0))
+        preview = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=24, expand_content=True)
+        preview.pack(fill="both", expand=True, pady=(14, 0))
+        self.video_preview = EmptyState(preview.content, "Місце для твого наступного відео",
+                                       "Перевір посилання, щоб побачити назву й тривалість.")
+        self.video_preview.pack(fill="both", expand=True)
 
     def _build_video_options(self, parent, prefix):
-        tk.Label(parent, text=f"{prefix} · ЯКІСТЬ І ФОРМАТ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", pady=(0, 10))
-        row = tk.Frame(parent, bg="#20261b")
+        tk.Label(parent, text=f"{prefix} · ЯКІСТЬ І ФОРМАТ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 10))
+        row = tk.Frame(parent, bg="#1b211c")
         row.pack(fill="x")
-        tk.Label(row, text="РОЗДІЛЬНІСТЬ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 8))
-        resolution = ttk.Combobox(row, state="readonly", width=20,
+        tk.Label(row, text="РОЗДІЛЬНІСТЬ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
+        resolution = Choice(row, state="readonly", width=20,
                                   values=("Автоматично", "2160p", "1440p", "1080p", "720p", "480p", "360p"))
         resolution.pack(side="left", padx=(0, 20))
         resolution.set("Автоматично" if self.default_video_resolution == "best" else self.default_video_resolution)
-        tk.Label(row, text="ФОРМАТ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(side="left", padx=(0, 8))
-        video_format = ttk.Combobox(row, state="readonly", width=12, values=("MP4", "MKV", "WebM"))
+        tk.Label(row, text="ФОРМАТ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(side="left", padx=(0, 8))
+        video_format = Choice(row, state="readonly", width=12, values=("MP4", "MKV", "WebM"))
         video_format.pack(side="left")
         video_format.set(self._video_format_label(self.default_video_format))
         return resolution, video_format
@@ -1158,56 +1253,67 @@ class TrackSplitApp:
 
     def _build_options_page(self, page):
         self._page_intro(page, "Опції", "Задай теки та формати, які Tracksplit використовуватиме за замовчуванням.")
-        folder_card = RoundedCard(page, bg="#151911", fill="#20261b", padding=18, radius=20)
+        folder_card = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=20)
         folder_card.pack(fill="x")
-        tk.Label(folder_card.content, text="ТЕКА ДЛЯ ЗАВАНТАЖЕНЬ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", pady=(0, 9))
-        folder_row = tk.Frame(folder_card.content, bg="#20261b")
+        tk.Label(folder_card.content, text="ТЕКА ДЛЯ ЗАВАНТАЖЕНЬ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 9))
+        folder_row = tk.Frame(folder_card.content, bg="#1b211c")
         folder_row.pack(fill="x")
-        self.options_folder_label = tk.Label(folder_row, text=str(self.download_parent), bg="#20261b",
-                                             fg="#f0f3e9", font=("TkDefaultFont", 10), anchor="w")
+        self.options_folder_label = tk.Label(folder_row, text=str(self.download_parent), bg="#1b211c",
+                                             fg="#f0f4ed", font=(FONT, 10), anchor="w")
         self.options_folder_label.pack(side="left", fill="x", expand=True)
         RoundedButton(folder_row, text="Вибрати теку…", command=self._choose_download_parent,
-                      variant="secondary", height=36, bg="#20261b").pack(side="right")
+                      variant="secondary", height=36, bg="#1b211c").pack(side="right")
 
-        defaults = RoundedCard(page, bg="#151911", fill="#20261b", padding=18, radius=20)
+        defaults = RoundedCard(page, bg="#111511", fill="#1b211c", padding=18, radius=20)
         defaults.pack(fill="x", pady=(14, 0))
-        tk.Label(defaults.content, text="ЗАВАНТАЖЕННЯ ВІДЕО", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", pady=(0, 10))
         self.options_resolution, self.options_format = self._build_video_options(defaults.content, "ЗА ЗАМОВЧУВАННЯМ")
-        tk.Label(defaults.content, text="ФОРМАТ ДЛЯ ПЛЕЙЛИСТІВ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", pady=(18, 8))
-        self.options_playlist_output = ttk.Combobox(defaults.content, state="readonly", width=25,
-                                                    values=("MP3 · один файл на відео", "Відео"))
+        preferences = tk.Frame(defaults.content, bg="#1b211c")
+        preferences.pack(fill="x", pady=(20, 0))
+        playlist = tk.Frame(preferences, bg="#1b211c")
+        playlist.pack(side="left", fill="x", expand=True)
+        appearance = tk.Frame(preferences, bg="#1b211c")
+        appearance.pack(side="left", fill="x", expand=True, padx=(18, 0))
+        tk.Label(playlist, text="ФОРМАТ ПЛЕЙЛИСТІВ", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 8))
+        self.options_playlist_output = Choice(playlist, width=25,
+                                              values=("MP3 · один файл на відео", "Відео"))
         self.options_playlist_output.pack(anchor="w")
         self.options_playlist_output.set("Відео" if self.default_playlist_output == "video" else "MP3 · один файл на відео")
-        tk.Label(defaults.content, text="ТЕМА ЗАСТОСУНКУ", bg="#20261b", fg="#a1aa95",
-                 font=("TkDefaultFont", 8, "bold")).pack(anchor="w", pady=(18, 8))
-        self.options_theme = ttk.Combobox(defaults.content, state="readonly", width=25,
-                                          values=("Оливкова", "Фіолетова"))
+        tk.Label(appearance, text="КОЛІРНА ТЕМА", bg="#1b211c", fg="#9aa797",
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 8))
+        self.options_theme = Choice(appearance, width=18, values=tuple(t["label"] for t in THEMES.values()))
         self.options_theme.pack(anchor="w")
-        self.options_theme.set("Фіолетова" if self.theme_name == "purple" else "Оливкова")
-        self.options_theme.bind("<<ComboboxSelected>>", self._change_theme_from_options)
-        self.options_save_button = RoundedButton(page, text="Зберегти опції", command=self._save_preferences_from_ui,
-                                                 variant="primary", height=42, bg="#151911")
-        self.options_save_button.pack(anchor="w", pady=(14, 0))
+        self.options_theme.set(THEMES[self.theme_name]["label"])
+        self.options_theme.bind("<<ComboboxSelected>>", self._change_theme_from_selection)
+        self.options_save_button = RoundedButton(self.action_host, text="Зберегти опції", command=self._save_preferences_from_ui,
+                                                 variant="primary", height=42, bg="#111511")
+
     def _show_page(self, page_key):
         if page_key not in self.pages:
             return
         for page in self.pages.values():
             page.pack_forget()
         self.pages[page_key].pack(fill="both", expand=True)
+        for action in self.action_host.winfo_children():
+            action.pack_forget()
+        actions = {"music": self.download_button, "playlist": self.playlist_download_button,
+                   "video": self.video_download_button, "options": self.options_save_button}
+        actions[page_key].configure(bg=THEMES[self.applied_theme]["card"])
+        actions[page_key].canvas.configure(bg=THEMES[self.applied_theme]["card"])
+        actions[page_key].pack()
+        self.footer_card.after_idle(self.footer_card._fit_height)
         titles = {"music": "Музика по розділах", "playlist": "Плейлист",
                   "video": "Відео", "options": "Опції"}
-        self.page_title.configure(text=titles[page_key])
+        self.page_title.configure(text=f"Колекція  /  {titles[page_key]}")
         for key, button in self.nav_buttons.items():
             button.set_variant("primary" if key == page_key else "secondary")
         self.active_page = page_key
 
     def _music_url_changed(self, *_):
         self.video = None
-        self.video_label.configure(text="Треки з відео з’являться тут")
-        self.chapter_count.configure(text="РОЗДІЛИ")
+        self.video_label.configure(text="Треки")
+        self.chapter_count.configure(text="MP3 · з обкладинкою")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.select_button.set_state("disabled")
@@ -1217,13 +1323,16 @@ class TrackSplitApp:
         self.playlist = None
         for item in self.playlist_tree.get_children():
             self.playlist_tree.delete(item)
-        self.playlist_title_label.configure(text="Відео плейлиста з’являться тут")
+        self.playlist_title_label.configure(text="Відео плейлиста")
         self.playlist_count_label.configure(text="")
         self.playlist_select_button.set_state("disabled")
         self.playlist_download_button.set_state("disabled")
 
     def _video_url_changed(self, *_):
         self.video_info = None
+        self.video_preview.title = "Місце для твого наступного відео"
+        self.video_preview.description = "Перевір посилання, щоб побачити назву й тривалість."
+        self.video_preview._draw()
         self.video_download_button.set_state("disabled")
 
     def _set_playlist_output(self, output, persist=True):
@@ -1241,8 +1350,12 @@ class TrackSplitApp:
             self.default_playlist_output = output
             self._save_settings()
 
-    def _change_theme_from_options(self, _event=None):
-        self._apply_theme("purple" if self.options_theme.get() == "Фіолетова" else "olive")
+    def _change_theme_from_selection(self, event):
+        label = event.widget.get()
+        for name, theme in THEMES.items():
+            if theme["label"] == label:
+                self._apply_theme(name)
+                break
 
     def _toggle_playlist_selection(self):
         children = self.playlist_tree.get_children()
@@ -1431,6 +1544,9 @@ class TrackSplitApp:
             return
         self.video_info = video
         self.video_info_url = url
+        self.video_preview.title = video["title"]
+        self.video_preview.description = f"YouTube  ·  {self._duration_text(video.get('duration'))}  ·  Готове до завантаження"
+        self.video_preview._draw()
         self.video_download_button.set_state("normal")
         self._set_status(f"Готово до завантаження: {video['title']}", 0)
 
@@ -1504,7 +1620,7 @@ class TrackSplitApp:
         self.pause_download_button.set_text("Пауза")
         self.pause_download_button.set_state("normal" if os.name != "nt" else "disabled")
         self.cancel_download_button.set_state("normal")
-        self.download_controls.pack(fill="x", pady=(4, 0))
+        self.download_controls.pack(fill="x", pady=(10, 0))
         return self.download_controller
 
     def _toggle_download_pause(self):
@@ -1533,7 +1649,9 @@ class TrackSplitApp:
         self.status.set("Скасовую завантаження…")
 
     def _finish_download_controls(self):
-        self.download_controls.pack_forget()
+        self.pause_download_button.set_text("Пауза")
+        self.pause_download_button.set_state("disabled")
+        self.cancel_download_button.set_state("disabled")
         self.download_controller = None
 
     def _download_cancelled(self):
@@ -1566,11 +1684,11 @@ class TrackSplitApp:
         icon_canvas = tk.Canvas(header, width=34, height=34, bg=theme["card"], bd=0, highlightthickness=0)
         icon_canvas.pack(side="left", padx=(0, 11))
         icon_canvas.create_oval(2, 2, 32, 32, fill=badge_color, outline="")
-        icon_canvas.create_text(17, 17, text=icon, fill=badge_text, font=("TkDefaultFont", 14, "bold"))
+        icon_canvas.create_text(17, 17, text=icon, fill=badge_text, font=(FONT, 14, "bold"))
         tk.Label(header, text=title, bg=theme["card"], fg=theme["ink"],
-                 font=("TkDefaultFont", 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+                 font=(FONT, 13, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
         tk.Label(content, text=message, bg=theme["card"], fg=theme["muted"],
-                 font=("TkDefaultFont", 10), anchor="w", justify="left", wraplength=440).pack(fill="x")
+                 font=(FONT, 10), anchor="w", justify="left", wraplength=440).pack(fill="x")
         footer = tk.Frame(content, bg=theme["card"])
         footer.pack(fill="x", pady=(20, 0))
         RoundedButton(footer, text="Гаразд", command=dialog.destroy, variant="primary", height=38,
@@ -1641,9 +1759,6 @@ class TrackSplitApp:
         except OSError:
             pass
 
-    def _toggle_theme(self):
-        self._apply_theme("purple" if self.theme_name == "olive" else "olive")
-
     def _apply_theme(self, theme_name: str, *, save=True):
         if theme_name not in THEMES:
             theme_name = "olive"
@@ -1672,18 +1787,28 @@ class TrackSplitApp:
                           "disabled_text": theme["secondary_disabled_text"]},
         }
         RoundedButton.FOCUS_COLOR = theme["focus"]
+        RoundedButton.NAV_PALETTE = theme
+        self.brand_mark.set_theme(theme["accent"], theme["accent_text"])
         for widget in self._walk_widgets(self.root):
-            if isinstance(widget, RoundedCard):
+            if isinstance(widget, Choice):
+                widget.set_theme(theme)
+            elif isinstance(widget, MediaList):
+                widget.set_theme(theme)
+            elif isinstance(widget, EmptyState):
+                widget.set_theme(theme)
+            elif isinstance(widget, RoundedCard):
+                widget.border = theme["border"]
                 widget.set_theme(bg=theme["bg"], fill=theme["card"])
             elif isinstance(widget, RoundedButton):
                 widget._draw()
             elif isinstance(widget, RoundedEntry):
                 widget.field = theme["field"]
                 widget.default_border = theme["outline"]
-                widget.border = theme["focus"] if widget.entry.focus_get() else theme["outline"]
+                widget.border = theme["focus"] if str(widget.tk.call("focus")) == str(widget.entry) else theme["outline"]
                 widget.focus_color = theme["focus"]
                 widget.text_color = theme["ink"]
                 widget.selection_color = theme["entry_select"]
+                widget.placeholder.configure(bg=theme["field"], fg=theme["muted"])
                 widget.entry.configure(bg=theme["field"], fg=theme["ink"], insertbackground=theme["ink"],
                                        selectbackground=theme["entry_select"])
                 widget._draw()
@@ -1697,7 +1822,7 @@ class TrackSplitApp:
         self.style.configure("Treeview.Heading", background=theme["heading"], foreground=theme["muted"],
                              bordercolor=theme["card"], lightcolor=theme["heading"], darkcolor=theme["heading"])
         self.style.map("Treeview.Heading", background=[("active", theme["border"])])
-        self.style.configure("TScrollbar", background=theme["scrollbar"], troughcolor=theme["card"],
+        self.style.configure("Vertical.TScrollbar", background=theme["scrollbar"], troughcolor=theme["card"], relief="flat",
                              bordercolor=theme["card"], arrowcolor=theme["muted"],
                              lightcolor=theme["scrollbar"], darkcolor=theme["scrollbar"])
         self.style.configure("Horizontal.TProgressbar", troughcolor=theme["progress_trough"],
@@ -1711,8 +1836,8 @@ class TrackSplitApp:
         self.progress.set_theme(trough=theme["progress_trough"], fill=theme["accent"])
         self.status_label.configure(fg=theme["muted"])
         self.theme_name = self.applied_theme = theme_name
-        self.theme_button.set_text(f"Тема: {theme['label']}")
-        self.options_theme.set("Фіолетова" if theme_name == "purple" else "Оливкова")
+        self.theme_selector.set(theme["label"])
+        self.options_theme.set(theme["label"])
         if save:
             self._save_settings()
 
@@ -1729,7 +1854,7 @@ class TrackSplitApp:
         if not selected:
             return
         self.download_parent = Path(selected)
-        self.destination_label.configure(text=str(self.download_parent))
+        self._fit_destination()
         self.options_folder_label.configure(text=str(self.download_parent))
         try:
             self._save_settings()
@@ -1757,7 +1882,7 @@ class TrackSplitApp:
     def _tools_ready(self):
         self.busy = False
         self._set_tool_actions_enabled(True)
-        self._set_status(f"Готово. yt-dlp {self._version(YTDLP_PATH)} · ffmpeg {self._version(FFMPEG_PATH)}", 100)
+        self._set_status("Готово до роботи. Додай посилання, щоб почати.", 0)
 
     def _tools_failed(self, error: str):
         self.busy = False
