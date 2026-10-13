@@ -160,6 +160,8 @@ UK_TO_EN = {
         "Select tracks and click ‘Download selected’.",
     "Завантажую відео…": "Downloading video…",
     "Завантажую аудіо з YouTube…": "Downloading audio from YouTube…",
+    "Повторюю завантаження після тимчасової відмови YouTube…":
+        "Retrying after a temporary YouTube refusal…",
     "Перевіряю інструменти…": "Checking tools…",
     "Готово до роботи. Додай посилання, щоб почати.": "Ready. Add a link to get started.",
     "Не вдалося підготувати інструменти.": "Could not prepare tools.",

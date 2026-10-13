@@ -14,6 +14,7 @@ from app import (  # noqa: E402
     TunekaApp,
     info_for,
     parse_youtube_urls,
+    retry_download_once_on_403,
     safe_filename,
     safe_foldername,
     split_video,
@@ -99,6 +100,40 @@ class ErrorLocalizationTests(unittest.TestCase):
     def test_ukrainian_ui_keeps_original_error_text(self):
         message = "Завантаження перенаправлено на недозволене джерело."
         self.assertEqual(translate_error(message, "uk"), message)
+
+
+class DownloadRetryTests(unittest.TestCase):
+    def test_retries_once_after_http_403(self):
+        attempts = []
+        progress = []
+
+        def download():
+            attempts.append(True)
+            if len(attempts) == 1:
+                raise RuntimeError("HTTP Error 403: Forbidden")
+            return "downloaded"
+
+        with patch("app.time.sleep") as sleep:
+            result = retry_download_once_on_403(download, lambda *args: progress.append(args))
+
+        self.assertEqual(result, "downloaded")
+        self.assertEqual(len(attempts), 2)
+        sleep.assert_called_once_with(1)
+        self.assertEqual(len(progress), 1)
+
+    def test_does_not_retry_other_errors(self):
+        attempts = []
+
+        def download():
+            attempts.append(True)
+            raise RuntimeError("Video unavailable")
+
+        with patch("app.time.sleep") as sleep:
+            with self.assertRaisesRegex(RuntimeError, "Video unavailable"):
+                retry_download_once_on_403(download, lambda *_args: None)
+
+        self.assertEqual(len(attempts), 1)
+        sleep.assert_not_called()
 
 
 class AudioExportTests(unittest.TestCase):

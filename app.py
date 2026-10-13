@@ -379,6 +379,22 @@ class DownloadCancelled(Exception):
     """Raised when the user cancels an active download."""
 
 
+def retry_download_once_on_403(download, progress, control=None):
+    """Retry once when YouTube temporarily rejects a media request."""
+    try:
+        return download()
+    except RuntimeError as exc:
+        if "HTTP Error 403: Forbidden" not in str(exc):
+            raise
+        if control:
+            control.check_cancelled()
+        progress("Повторюю завантаження після тимчасової відмови YouTube…", 0)
+        time.sleep(1)
+        if control:
+            control.check_cancelled()
+        return download()
+
+
 def process_group_kwargs() -> dict:
     options = hidden_console_kwargs()
     if os.name != "nt":
@@ -1994,17 +2010,23 @@ class TunekaApp:
                         "chapters": [{"index": 0, "title": details["title"], "start": 0,
                                       "end": details.get("duration")}],
                     }
-                    _, tracks, missing_cover = split_video(
-                        entry["url"], single_track, [0], output_dir, item_progress,
-                        jobdir_override=output_dir, filename_prefix=f"{position:02d} - ",
-                        control=control, number_tracks=False, audio_format=music_format,
+                    _, tracks, missing_cover = retry_download_once_on_403(
+                        lambda: split_video(
+                            entry["url"], single_track, [0], output_dir, item_progress,
+                            jobdir_override=output_dir, filename_prefix=f"{position:02d} - ",
+                            control=control, number_tracks=False, audio_format=music_format,
+                        ), item_progress, control,
                     )
                     completed.extend(tracks)
                     cover_warning = cover_warning or missing_cover
                 else:
-                    target = download_video_file(entry["url"], entry["title"], output_dir, item_progress,
-                                                 resolution=resolution, container=video_format,
-                                                 prefix=f"{position:02d} - ", control=control)
+                    target = retry_download_once_on_403(
+                        lambda: download_video_file(
+                            entry["url"], entry["title"], output_dir, item_progress,
+                            resolution=resolution, container=video_format,
+                            prefix=f"{position:02d} - ", control=control,
+                        ), item_progress, control,
+                    )
                     completed.append(target)
             except DownloadCancelled:
                 raise
@@ -2148,10 +2170,12 @@ class TunekaApp:
                         overall = int(((position - 1) + max(0, min(value, 100)) / 100) * 100 / len(videos))
                         self._thread_progress(f"{position}/{len(videos)} · {title} — {text}", overall)
                     try:
-                        path = download_video_file(
-                            url, video["title"], output_dir, item_progress,
-                            resolution=resolution, container=container,
-                            prefix=f"{position:02d} - " if len(videos) > 1 else "", control=control,
+                        path = retry_download_once_on_403(
+                            lambda: download_video_file(
+                                url, video["title"], output_dir, item_progress,
+                                resolution=resolution, container=container,
+                                prefix=f"{position:02d} - " if len(videos) > 1 else "", control=control,
+                            ), item_progress, control,
                         )
                         paths.append(path)
                     except DownloadCancelled:
@@ -2808,10 +2832,12 @@ class TunekaApp:
                         overall = int((position + max(0, min(value, 100)) * count / 100) * 100 / total_tracks)
                         self._thread_progress(f"{position}/{len(grouped)} · {text}", overall)
                     try:
-                        output_dir, created, missing_cover = split_video(
-                            source["url"], video, chapters, download_parent, item_progress,
-                            filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
-                            control=control, audio_format=audio_format,
+                        output_dir, created, missing_cover = retry_download_once_on_403(
+                            lambda: split_video(
+                                source["url"], video, chapters, download_parent, item_progress,
+                                filename_prefix=f"{source_index + 1:02d} - " if len(sources) > 1 else "",
+                                control=control, audio_format=audio_format,
+                            ), item_progress, control,
                         )
                         output_dirs.append(output_dir)
                         tracks.extend(created)
