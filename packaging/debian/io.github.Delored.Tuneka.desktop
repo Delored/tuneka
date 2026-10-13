@@ -9,3 +9,4 @@ Terminal=false
 Categories=AudioVideo;Audio;Video;Network;
 Keywords=music;playlist;video;MP3;split;chapters;
 StartupNotify=true
+StartupWMClass=Tuneka
