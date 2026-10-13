@@ -80,6 +80,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out master
+        uses: actions/checkout@v4
       - name: Download Debian packages
         uses: actions/download-artifact@v4
         with:
