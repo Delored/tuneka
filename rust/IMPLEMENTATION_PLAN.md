@@ -4,7 +4,7 @@
 
 Мета — реалізувати в `rust/` незалежну Rust-версію Tuneka зі спільним ядром для CLI, TUI, MCP та графічного інтерфейсу GPUI. Отримання даних YouTube і завантаження реалізуємо самостійно; `rusty_ytdl` використовуємо як довідковий код. FFmpeg підключаємо як бібліотеки. Наявна Python-версія залишається робочим орієнтиром поведінки.
 
-Оновлення CI PR #14: [Windows job 115868400941](https://github.com/Delored/tuneka/actions/runs/38568631667/job/115868400941) зупинився на LF/CRLF припущенні нового тесту після успішного збирання каталогу ліцензій. Тест виправлено: порівняння з вихідними байтами та окрема перевірка LF/CRLF. Чотири packaging tests локально успішні; три license tests також перевірено з імітацією Windows text-write CRLF. Повторний native Windows CI ще потрібен. Обидва Linux jobs цього запуску успішні.
+Оновлення CI PR #14: [macOS ARM64 job 115881089435](https://github.com/Delored/tuneka/actions/runs/38572404121/job/115881089435) пройшов packaging tests, але crates.io обірвав отримання індексу `nanorand` до компіляції (`Connection reset by peer`). Для macOS додано окремий locked fetch із максимум трьома спробами й загальним timeout 10 хвилин; наступні test/build використовують `--frozen`. Локально пройшли реальний fetch та frozen metadata, actionlint і перевірки негайного успіху, відновлення після двох збоїв та остаточного failure після трьох. Remote run виправлення ще потрібен; M6 залишається відкритим. Попередні Windows UTF-8/LF/CRLF виправлення й докази збережено в `packaging/README.md`.
 
 ## 1. Узгоджені вимоги та межі
 

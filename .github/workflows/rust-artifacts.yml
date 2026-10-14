@@ -127,11 +127,29 @@ jobs:
           printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\n' "$ffmpeg_prefix" >> "$GITHUB_ENV"
           printf 'LIBCLANG_PATH=%s/Toolchains/XcodeDefault.xctoolchain/usr/lib\n' "$(xcode-select -p)" >> "$GITHUB_ENV"
           printf '%s/bin\n' "$ffmpeg_prefix" >> "$GITHUB_PATH"
+      - name: Fetch locked Cargo dependencies
+        working-directory: rust
+        timeout-minutes: 10
+        env:
+          CARGO_NET_RETRY: '5'
+        run: |
+          host=$(rustc -vV | sed -n 's/^host: //p')
+          test -n "$host"
+          for attempt in 1 2 3; do
+            if cargo fetch --locked --target "$host"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo 'Cargo dependency fetch failed after 3 attempts.' >&2
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
       - name: Test and build all four entry points
         working-directory: rust
         run: |
-          cargo test --locked --workspace
-          cargo build --locked --release --workspace
+          cargo test --frozen --workspace
+          cargo build --frozen --release --workspace
       - name: Bundle and verify native dependencies
         working-directory: rust
         env:
