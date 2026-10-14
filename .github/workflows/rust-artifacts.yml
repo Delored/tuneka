@@ -1,0 +1,195 @@
+name: Rust artifacts
+
+on:
+  pull_request:
+    branches: [master, rust-version]
+    paths: ['rust/**', '.github/workflows/rust-artifacts.yml', 'LICENSE']
+  push:
+    branches: [master, rust-version]
+    paths: ['rust/**', '.github/workflows/rust-artifacts.yml', 'LICENSE']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-artifacts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: '2'
+  RUST_BACKTRACE: '1'
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }} (.deb, CLI + desktop)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test native Debian 13 release packages
+        working-directory: rust
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')
+          docker build --platform "linux/$TARGET_ARCH" \
+            --target desktop-deb-export -f packaging/Dockerfile.linux \
+            --build-arg BUILD_PROFILE=release \
+            --build-arg BUILD_JOBS=2 \
+            --build-arg "PACKAGE_VERSION=${version}~ci.${GITHUB_RUN_NUMBER}" \
+            --output type=local,dest=dist/linux .
+      - name: Check package architecture and installed binaries
+        working-directory: rust
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$(find dist/linux -maxdepth 1 -name '*.deb' | wc -l)" -eq 2
+          for package in dist/linux/*.deb; do
+            test "$(dpkg-deb --field "$package" Architecture)" = "$TARGET_ARCH"
+            dpkg-deb --contents "$package"
+          done
+          docker run --rm --platform "linux/$TARGET_ARCH" \
+            --mount "type=bind,src=$PWD/dist/linux,dst=/packages,readonly" \
+            debian:trixie-slim sh -ec '
+              apt-get update
+              apt-get install -y --no-install-recommends /packages/*.deb
+              tuneka --version
+              for binary in tuneka tuneka-tui tuneka-mcp tuneka-gui; do
+                test -x "/usr/bin/$binary"
+                dependencies=$(ldd "/usr/bin/$binary")
+                if printf "%s\n" "$dependencies" | grep "not found"; then exit 1; fi
+              done
+            '
+      - name: Record source and checksums
+        working-directory: rust/dist/linux
+        run: |
+          printf '%s\n' "$GITHUB_SHA" > SOURCE_COMMIT.txt
+          sha256sum ./*.deb > SHA256SUMS
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tuneka-rust-linux-${{ matrix.arch }}
+          path: rust/dist/linux/
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS ${{ matrix.arch }} (.app + tools)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3fc1e40d4c4ce3007de028907c886bc3996ce2ea # 1.96.0
+        with:
+          toolchain: 1.96.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Cache Cargo downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-artifacts-macos-${{ matrix.arch }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Install FFmpeg 7 and configure bindgen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          brew install ffmpeg@7 pkg-config
+          ffmpeg_prefix=$(brew --prefix ffmpeg@7)
+          printf 'PKG_CONFIG_PATH=%s/lib/pkgconfig\n' "$ffmpeg_prefix" >> "$GITHUB_ENV"
+          printf 'LIBCLANG_PATH=%s/Toolchains/XcodeDefault.xctoolchain/usr/lib\n' "$(xcode-select -p)" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$ffmpeg_prefix" >> "$GITHUB_PATH"
+      - name: Test and build all four entry points
+        working-directory: rust
+        run: |
+          cargo test --locked --workspace
+          cargo build --locked --release --workspace
+      - name: Bundle and verify native dependencies
+        working-directory: rust
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$(uname -m)" = "$TARGET_ARCH"
+          python3 packaging/bundle_macos.py --profile release
+          bundle="dist/macos-${TARGET_ARCH}-release"
+          python3 packaging/collect_licenses.py "$bundle/licenses/rust"
+          printf '%s\n' "$GITHUB_SHA" > "$bundle/SOURCE_COMMIT.txt"
+          ffmpeg -buildconf > "$bundle/FFMPEG-BUILD-CONFIG.txt" 2>&1
+          mkdir -p dist/upload
+          tar -czf "dist/upload/tuneka-rust-macos-${TARGET_ARCH}.tar.gz" -C "$bundle" .
+          cd dist/upload
+          shasum -a 256 ./*.tar.gz > SHA256SUMS
+      - name: Upload macOS app and tools
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tuneka-rust-macos-${{ matrix.arch }}
+          path: rust/dist/upload/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  windows:
+    name: Windows x64 (portable GUI + tools)
+    runs-on: windows-2022
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3fc1e40d4c4ce3007de028907c886bc3996ce2ea # 1.96.0
+        with:
+          toolchain: 1.96.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Cache Cargo and native dependency downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/vcpkg-downloads
+            ${{ runner.temp }}/vcpkg-binary-cache
+          key: rust-artifacts-windows-x64-${{ hashFiles('rust/Cargo.lock', 'rust/packaging/windows/**') }}
+      - name: Build, test and package with pinned FFmpeg
+        shell: pwsh
+        env:
+          VCPKG_DOWNLOADS: ${{ runner.temp }}/vcpkg-downloads
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS, $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          ./rust/packaging/windows/build.ps1 -VcpkgRoot "$env:RUNNER_TEMP/tuneka-vcpkg" -OutputDirectory "$env:GITHUB_WORKSPACE/rust/dist/windows"
+      - name: Upload Windows portable package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: tuneka-rust-windows-x64
+          path: |
+            rust/dist/windows/*.zip
+            rust/dist/windows/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

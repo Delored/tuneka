@@ -1,0 +1,17 @@
+[package]
+name = "tuneka-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+tuneka-core.workspace = true
+tuneka-cli = { path = "../tuneka-cli" }
+tokio.workspace = true
+rmcp.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

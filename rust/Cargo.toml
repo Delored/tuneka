@@ -1,0 +1,51 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/tuneka-cli", "crates/tuneka-tui", "crates/tuneka-mcp"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "GPL-3.0-only"
+
+[workspace.dependencies]
+tuneka-core = { path = "crates/tuneka-core" }
+tuneka-youtube = { path = "crates/tuneka-youtube" }
+tuneka-download = { path = "crates/tuneka-download" }
+tuneka-media = { path = "crates/tuneka-media" }
+tokio = { version = "=1.53.3", features = ["full"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls", "json", "stream"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+thiserror = "=2.0.18"
+url = { version = "=2.5.8", features = ["serde"] }
+async-trait = "=0.1.89"
+fs2 = "=0.4.3"
+clap = { version = "=4.6.7", features = ["derive"] }
+uuid = { version = "=1.28.0", features = ["v4", "serde"] }
+tempfile = "=3.27.0"
+ffmpeg-next = "=8.0.0"
+ratatui = "=0.30.2"
+crossterm = "=0.29.0"
+rmcp = { version = "=3.5.1", features = ["server", "macros", "transport-io", "schemars", "client", "transport-child-process"] }
+gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
+rquickjs = { version = "=0.14.0", default-features = false, features = ["std"] }
+regex = "=1.12.3"
+futures-util = "=0.3.32"
+
+[patch.crates-io]
+# GPUI's archive dependency still requires xattr 0.2; see vendor/xattr/TUNEKA-PATCH.md.
+xattr = { path = "vendor/xattr" }
+
+[profile.release]
+lto = "thin"
+strip = "debuginfo"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
