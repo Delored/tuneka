@@ -97,6 +97,20 @@ def verify_bundle(app, binaries, libraries, architecture):
     subprocess.check_call([str(contents / 'MacOS' / 'tuneka'), '--version'], env=environment)
 
 
+def sign_bundle(app, binaries, libraries):
+    # codesign recognizes the CFBundleExecutable as the enclosing app. Its
+    # nested helpers/libraries must already be signed, even for ad-hoc bundles.
+    for library in libraries:
+        subprocess.check_call(['codesign', '--force', '--sign', '-', str(library)])
+    with (app / 'Contents' / 'Info.plist').open('rb') as stream:
+        executable = plistlib.load(stream)['CFBundleExecutable']
+    main_binary = app / 'Contents' / 'MacOS' / executable
+    for binary in binaries:
+        if binary != main_binary:
+            subprocess.check_call(['codesign', '--force', '--sign', '-', str(binary)])
+    subprocess.check_call(['codesign', '--force', '--sign', '-', str(app)])
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--profile', choices=['debug', 'release'], default='debug')
@@ -129,10 +143,8 @@ def main():
         shutil.copy2(origin, target)
         binaries.append(target)
         queue.append((target, origin, origin, []))
-    processed = []
     while queue:
         binary, origin, executable, inherited_paths = queue.pop()
-        processed.append(binary)
         search_paths = [expand_path(path, origin, executable) for path in rpaths(origin)] + inherited_paths
         for dep in dependencies(binary):
             if dep.startswith(SYSTEM_PREFIXES):
@@ -160,9 +172,7 @@ def main():
             'CFBundleShortVersionString': bundle_version, 'CFBundlePackageType': 'APPL',
             'NSHighResolutionCapable': True,
         }, stream)
-    for binary in processed:
-        subprocess.check_call(['codesign', '--force', '--sign', '-', str(binary)])
-    subprocess.check_call(['codesign', '--force', '--sign', '-', str(app.parent)])
+    sign_bundle(app.parent, binaries, list(libs.iterdir()))
     verify_bundle(app.parent, binaries, list(libs.iterdir()), architecture)
     shutil.copy2(ROOT / 'THIRD_PARTY_NOTICES.md', out)
     shutil.copytree(ROOT / 'licenses', out / 'licenses', dirs_exist_ok=True)

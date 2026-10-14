@@ -18,11 +18,11 @@ def main():
     output = args.destination.resolve()
     if output.exists():
         raise SystemExit(f"License output already exists: {output}")
-    rustc = subprocess.check_output(["rustc", "-vV"], text=True, cwd=ROOT)
+    rustc = subprocess.check_output(["rustc", "-vV"], text=True, encoding="utf-8", cwd=ROOT)
     host = next(line.split(": ", 1)[1] for line in rustc.splitlines() if line.startswith("host: "))
     metadata = json.loads(subprocess.check_output(
         ["cargo", "metadata", "--locked", "--offline", "--format-version", "1",
-         "--filter-platform", host], text=True, cwd=ROOT))
+         "--filter-platform", host], text=True, encoding="utf-8", cwd=ROOT))
     resolved = {node["id"] for node in metadata["resolve"]["nodes"]}
     output.mkdir(parents=True)
     shutil.copy2(ROOT / "Cargo.lock", output / "Cargo.lock")
@@ -58,12 +58,14 @@ def main():
         packages.append({"name": package["name"], "version": package["version"],
                          "license": package.get("license"), "source": package.get("source"),
                          "files": files})
-    (output / "catalog.json").write_text(json.dumps({"target": host, "packages": packages}, indent=2) + "\n")
+    (output / "catalog.json").write_text(
+        json.dumps({"target": host, "packages": packages}, indent=2) + "\n", encoding="utf-8")
     (output / "README.txt").write_text(
         "License texts shipped by resolved native-target Cargo packages, including build/dev dependencies.\n"
         "catalog.json records license expressions and copied files; an empty files list needs review.\n"
         "This catalog is not a completed release license/source-compliance audit. Native library notices\n"
-        "are collected separately by each platform packager. Cargo.lock records exact dependency versions.\n")
+        "are collected separately by each platform packager. Cargo.lock records exact dependency versions.\n",
+        encoding="utf-8")
     print(f"Collected license catalog for {len(packages)} packages ({host})")
 
 
