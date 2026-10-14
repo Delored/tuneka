@@ -81,8 +81,19 @@ class CollectLicensesEncodingTests(unittest.TestCase):
         self.assertEqual(Path(copied["path"]).name, self.license_name)
         self.assertEqual((self.output / copied["path"]).read_bytes(), self.license_text)
         self.assertEqual(copied["sha256"], hashlib.sha256(self.license_text).hexdigest())
-        self.assertEqual((self.output / "Tuneka-LICENSE").read_bytes(), b"Fixture project license\n")
+        self.assertEqual((self.output / "Tuneka-LICENSE").read_bytes(),
+                         (self.root / "LICENSE").read_bytes())
         self.assertTrue((self.output / "README.txt").read_text(encoding="utf-8"))
+
+    def test_project_license_preserves_lf_and_crlf_bytes(self):
+        metadata_bytes = json.dumps(self.metadata, ensure_ascii=False).encode("utf-8")
+        for name, newline in (("lf", b"\n"), ("crlf", b"\r\n")):
+            with self.subTest(line_endings=name):
+                self.output = self.root / f"collected-{name}"
+                original = newline.join((b"Fixture project license", b"Second line", b""))
+                (self.root / "LICENSE").write_bytes(original)
+                self.collect(metadata_bytes)
+                self.assertEqual((self.output / "Tuneka-LICENSE").read_bytes(), original)
 
     def test_invalid_utf8_metadata_is_rejected_before_creating_catalog(self):
         self.metadata["packages"][0]["license_file"] = None
