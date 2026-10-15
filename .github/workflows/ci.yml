@@ -33,7 +33,7 @@ jobs:
   build-deb:
     name: Build Debian package (${{ matrix.arch }})
     needs: tests
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master')
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +75,7 @@ jobs:
   build-windows:
     name: Build Windows packages (x64)
     needs: tests
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/master')
     runs-on: windows-latest
     steps:
       - name: Check out source
