@@ -1,0 +1,16 @@
+[package]
+name = "tuneka-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+tuneka-core.workspace = true
+tuneka-cli = { path = "../tuneka-cli" }
+tokio.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

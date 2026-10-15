@@ -1,0 +1,50 @@
+name: Rust validation
+
+on:
+  pull_request:
+    branches: [master]
+    paths: ['rust/**', '.github/workflows/rust.yml']
+  push:
+    branches: [master, rust-version]
+    paths: ['rust/**', '.github/workflows/rust.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-headless:
+    runs-on: ubuntu-24.04
+    container: rust:1.96-slim-trixie
+    steps:
+      - name: Install FFmpeg 7 build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git python3 libavdevice-dev libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libswresample-dev libswscale-dev pkg-config clang
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - name: Test packaging helpers
+        run: python3 -m unittest discover -s rust/packaging/tests -v
+      - run: sh rust/packaging/check.sh
+      - name: Build entry points
+        working-directory: rust
+        run: cargo build --locked -p tuneka-cli -p tuneka-tui -p tuneka-mcp
+      - name: Exercise the real terminal UI
+        working-directory: rust
+        run: python3 packaging/smoke_tui.py
+
+  linux-gui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test GPUI with FFmpeg 7
+        working-directory: rust
+        run: docker build --target gui-smoke -f packaging/Dockerfile.linux -t tuneka-gui-smoke .
+      - name: Exercise X11 with software Vulkan
+        working-directory: rust
+        run: |
+          mkdir -p artifacts/linux-gui
+          docker run --rm --network none --mount "type=bind,src=$PWD/artifacts/linux-gui,dst=/evidence" --mount "type=bind,src=$PWD/packaging,dst=/checks,readonly" tuneka-gui-smoke sh /checks/smoke_linux_gui.sh

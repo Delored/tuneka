@@ -1,0 +1,25 @@
+[package]
+name = "tuneka-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+tuneka-core.workspace = true
+tuneka-youtube.workspace = true
+tuneka-download.workspace = true
+tuneka-media.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+base64 = "=0.22.1"
+url.workspace = true
+
+[[bin]]
+name = "tuneka"
+path = "src/main.rs"

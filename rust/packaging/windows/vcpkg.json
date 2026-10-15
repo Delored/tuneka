@@ -1,0 +1,26 @@
+{
+  "name": "tuneka-native-dependencies",
+  "version-string": "0.1.0",
+  "builtin-baseline": "dd3097e305afa53f7b4312371f62058d2e665320",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": [
+        "avcodec",
+        "avdevice",
+        "avfilter",
+        "avformat",
+        "swresample",
+        "swscale",
+        "mp3lame",
+        "opus",
+        "dav1d",
+        "vpx",
+        "x264",
+        "gpl",
+        "zlib"
+      ]
+    }
+  ]
+}

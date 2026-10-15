@@ -1,0 +1,15 @@
+[package]
+name = "tuneka-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ffmpeg-next.workspace = true
+
+sha2 = "=0.10.9"
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

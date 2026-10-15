@@ -1,0 +1,67 @@
+# Local Linux build/runtime validation, no deployment or publication.
+FROM rust:1.96-slim-trixie AS build-base
+RUN apt-get update && apt-get install -y --no-install-recommends clang pkg-config python3 libavdevice-dev libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libswresample-dev libswscale-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+ARG BUILD_JOBS=4
+ENV CARGO_BUILD_JOBS=$BUILD_JOBS
+ARG TARGETARCH
+ARG BUILD_PROFILE=debug
+ARG RUN_TESTS=1
+ARG PACKAGE_VERSION=0.1.0
+
+FROM build-base AS builder
+COPY . .
+RUN --mount=type=cache,id=tuneka-cargo,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=tuneka-target-${TARGETARCH}-${BUILD_PROFILE},target=/src/target,sharing=locked \
+    # A copied source may predate a cached compilation from another build context.
+    # Refresh local sources so Cargo cannot reuse a stale workspace/vendor binary.
+    find crates vendor -type f -exec touch {} + && \
+    case "$BUILD_PROFILE" in debug) profile=dev;; release) profile=release;; *) echo 'BUILD_PROFILE must be debug or release' >&2; exit 1;; esac && \
+    if [ "$RUN_TESTS" = 1 ]; then cargo test --locked --profile "$profile" --workspace --exclude tuneka-gui; fi && \
+    cargo build --locked --profile "$profile" -p tuneka-cli -p tuneka-tui -p tuneka-mcp && \
+    mkdir /out && cp "target/$BUILD_PROFILE/tuneka" "target/$BUILD_PROFILE/tuneka-tui" "target/$BUILD_PROFILE/tuneka-mcp" /out/
+
+FROM build-base AS deb-package
+RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/ /out/
+COPY . .
+RUN sh packaging/build-deb.sh /out /packages "$PACKAGE_VERSION"
+
+FROM scratch AS deb-export
+COPY --from=deb-package /packages/ /
+
+FROM build-base AS gui-builder
+RUN apt-get update && apt-get install -y --no-install-recommends libfontconfig-dev libwayland-dev libx11-xcb-dev libxkbcommon-x11-dev libvulkan1 libssl-dev libasound2-dev cmake && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN --mount=type=cache,id=tuneka-cargo,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=tuneka-target-${TARGETARCH}-${BUILD_PROFILE},target=/src/target,sharing=locked \
+    find crates vendor -type f -exec touch {} + && \
+    case "$BUILD_PROFILE" in debug) profile=dev;; release) profile=release;; *) echo 'BUILD_PROFILE must be debug or release' >&2; exit 1;; esac && \
+    if [ "$RUN_TESTS" = 1 ]; then cargo test --locked --profile "$profile" -p tuneka-gui; fi && \
+    cargo build --locked --profile "$profile" -p tuneka-gui && \
+    mkdir /out && cp "target/$BUILD_PROFILE/tuneka-gui" /out/
+
+FROM gui-builder AS gui-deb-package
+RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev && rm -rf /var/lib/apt/lists/*
+RUN sh packaging/build-deb.sh /out /gui-packages "$PACKAGE_VERSION" desktop
+RUN --mount=type=cache,id=tuneka-cargo,target=/usr/local/cargo/registry,sharing=locked \
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/^host: //p')" && \
+    python3 packaging/collect_licenses.py /gui-packages/licenses-rust --project-license /usr/share/common-licenses/GPL-3
+
+FROM scratch AS desktop-deb-export
+COPY --from=deb-package /packages/ /
+COPY --from=gui-deb-package /gui-packages/ /
+
+FROM debian:trixie-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends libavdevice61 libavcodec61 libavformat61 libavutil59 libavfilter10 libswresample5 libswscale8 ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /out/ /usr/local/bin/
+ENV TUNEKA_RUST_DATA_DIR=/data/state TUNEKA_DOWNLOADS=/data/downloads
+CMD ["tuneka", "--version"]
+
+# Software-rendered X11 smoke environment; separate from the headless package.
+FROM runtime AS gui-smoke
+RUN apt-get update && apt-get install -y --no-install-recommends libxkbcommon-x11-0 libx11-xcb1 libwayland-client0 libfontconfig1 libvulkan1 mesa-vulkan-drivers dbus-x11 xvfb xauth xdotool x11-apps openbox fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+COPY --from=gui-builder /out/tuneka-gui /usr/local/bin/
+CMD ["tuneka-gui"]
+
+FROM runtime AS headless
