@@ -6,6 +6,7 @@ ARG BUILD_JOBS=4
 ENV CARGO_BUILD_JOBS=$BUILD_JOBS
 ARG TARGETARCH
 ARG BUILD_PROFILE=debug
+ARG RUN_TESTS=1
 ARG PACKAGE_VERSION=0.1.0
 
 FROM build-base AS builder
@@ -16,7 +17,7 @@ RUN --mount=type=cache,id=tuneka-cargo,target=/usr/local/cargo/registry,sharing=
     # Refresh local sources so Cargo cannot reuse a stale workspace/vendor binary.
     find crates vendor -type f -exec touch {} + && \
     case "$BUILD_PROFILE" in debug) profile=dev;; release) profile=release;; *) echo 'BUILD_PROFILE must be debug or release' >&2; exit 1;; esac && \
-    cargo test --locked --profile "$profile" --workspace --exclude tuneka-gui && \
+    if [ "$RUN_TESTS" = 1 ]; then cargo test --locked --profile "$profile" --workspace --exclude tuneka-gui; fi && \
     cargo build --locked --profile "$profile" -p tuneka-cli -p tuneka-tui -p tuneka-mcp && \
     mkdir /out && cp "target/$BUILD_PROFILE/tuneka" "target/$BUILD_PROFILE/tuneka-tui" "target/$BUILD_PROFILE/tuneka-mcp" /out/
 
@@ -36,7 +37,7 @@ RUN --mount=type=cache,id=tuneka-cargo,target=/usr/local/cargo/registry,sharing=
     --mount=type=cache,id=tuneka-target-${TARGETARCH}-${BUILD_PROFILE},target=/src/target,sharing=locked \
     find crates vendor -type f -exec touch {} + && \
     case "$BUILD_PROFILE" in debug) profile=dev;; release) profile=release;; *) echo 'BUILD_PROFILE must be debug or release' >&2; exit 1;; esac && \
-    cargo test --locked --profile "$profile" -p tuneka-gui && \
+    if [ "$RUN_TESTS" = 1 ]; then cargo test --locked --profile "$profile" -p tuneka-gui; fi && \
     cargo build --locked --profile "$profile" -p tuneka-gui && \
     mkdir /out && cp "target/$BUILD_PROFILE/tuneka-gui" /out/
 

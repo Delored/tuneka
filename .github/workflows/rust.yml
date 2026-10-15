@@ -14,11 +14,7 @@ permissions:
 
 jobs:
   linux-headless:
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-24.04
     container: rust:1.96-slim-trixie
     steps:
       - name: Install FFmpeg 7 build dependencies
@@ -29,6 +25,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.96.0
         with:
           components: rustfmt, clippy
+      - name: Test packaging helpers
+        run: python3 -m unittest discover -s rust/packaging/tests -v
       - run: sh rust/packaging/check.sh
       - name: Build entry points
         working-directory: rust

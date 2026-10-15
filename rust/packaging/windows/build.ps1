@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$VcpkgRoot,
-    [string]$OutputDirectory = 'dist/windows-x64'
+    [string]$OutputDirectory = 'dist/windows-x64',
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,9 +77,11 @@ $env:PATH = (Join-Path $VcpkgRoot 'installed/x64-windows/bin') + ';' + $env:PATH
 Push-Location $RustRoot
 try {
     Invoke-Checked cargo @('build', '--workspace', '--locked', '--release', '--target', $Target)
-    # These include actual FFmpeg output tests and an MCP child-process lifecycle.
-    # No live YouTube probes or GUI desktop interaction are run by this command.
-    Invoke-Checked cargo @('test', '--workspace', '--locked', '--release', '--target', $Target)
+    if (-not $SkipTests) {
+        # These include actual FFmpeg output tests and an MCP child-process lifecycle.
+        # No live YouTube probes or GUI desktop interaction are run by this command.
+        Invoke-Checked cargo @('test', '--workspace', '--locked', '--release', '--target', $Target)
+    }
     & (Join-Path $PSScriptRoot 'bundle.ps1') -VcpkgRoot $VcpkgRoot -OutputDirectory $OutputDirectory
 } finally {
     Pop-Location

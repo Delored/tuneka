@@ -69,7 +69,7 @@ $SystemDlls = @(
     'cfgmgr32.dll', 'comctl32.dll', 'comdlg32.dll', 'crypt32.dll', 'cryptbase.dll',
     'd2d1.dll', 'd3d11.dll', 'd3d12.dll', 'd3dcompiler_47.dll', 'dcomp.dll',
     'devobj.dll', 'dnsapi.dll', 'dwmapi.dll', 'dwrite.dll', 'dxgi.dll', 'dxva2.dll',
-    'gdi32.dll', 'hid.dll', 'imm32.dll', 'iphlpapi.dll', 'kernel32.dll', 'kernelbase.dll',
+    'gdi32.dll', 'hid.dll', 'imm32.dll', 'iphlpapi.dll', 'icuuc.dll', 'kernel32.dll', 'kernelbase.dll',
     'mf.dll', 'mfplat.dll', 'mfreadwrite.dll', 'mfuuid.dll', 'mmdevapi.dll', 'msacm32.dll',
     'msasn1.dll', 'msimg32.dll', 'msvcrt.dll', 'msvfw32.dll', 'mswsock.dll', 'ncrypt.dll', 'netapi32.dll',
     'normaliz.dll', 'ntdll.dll', 'ole32.dll', 'oleacc.dll', 'oleaut32.dll', 'opengl32.dll',

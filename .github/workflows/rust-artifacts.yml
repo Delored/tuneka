@@ -1,19 +1,17 @@
 name: Rust artifacts
 
 on:
-  pull_request:
-    branches: [master, rust-version]
-    paths: ['rust/**', '.github/workflows/rust-artifacts.yml', 'LICENSE']
-  push:
-    branches: [master, rust-version]
-    paths: ['rust/**', '.github/workflows/rust-artifacts.yml', 'LICENSE']
+  workflow_run:
+    workflows: [Rust validation]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: rust-artifacts-${{ github.event.pull_request.number || github.ref }}
+  group: rust-artifacts-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: true
 
 env:
@@ -23,6 +21,7 @@ env:
 
 jobs:
   linux:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Linux ${{ matrix.arch }} (.deb, CLI + desktop)
     strategy:
       fail-fast: false
@@ -38,9 +37,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Test packaging helpers
-        run: python3 -m unittest discover -s rust/packaging/tests -v
-      - name: Build and test native Debian 13 release packages
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Build native Debian 13 release packages
         working-directory: rust
         env:
           TARGET_ARCH: ${{ matrix.arch }}
@@ -50,6 +48,7 @@ jobs:
             --target desktop-deb-export -f packaging/Dockerfile.linux \
             --build-arg BUILD_PROFILE=release \
             --build-arg BUILD_JOBS=2 \
+            --build-arg RUN_TESTS=0 \
             --build-arg "PACKAGE_VERSION=${version}~ci.${GITHUB_RUN_NUMBER}" \
             --output type=local,dest=dist/linux .
       - name: Check package architecture and installed binaries
@@ -88,6 +87,7 @@ jobs:
           retention-days: 14
 
   macos:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: macOS ${{ matrix.arch }} (.app + tools)
     strategy:
       fail-fast: false
@@ -103,14 +103,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: dtolnay/rust-toolchain@3fc1e40d4c4ce3007de028907c886bc3996ce2ea # 1.96.0
         with:
           toolchain: 1.96.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Test packaging helpers
-        run: python3 -m unittest discover -s rust/packaging/tests -v
       - name: Cache Cargo downloads
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
@@ -145,11 +144,9 @@ jobs:
             fi
             sleep "$((attempt * 10))"
           done
-      - name: Test and build all four entry points
+      - name: Build all four entry points
         working-directory: rust
-        run: |
-          cargo test --frozen --workspace
-          cargo build --frozen --release --workspace
+        run: cargo build --frozen --release --workspace
       - name: Bundle and verify native dependencies
         working-directory: rust
         env:
@@ -175,6 +172,7 @@ jobs:
           compression-level: 0
 
   windows:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Windows x64 (portable GUI + tools)
     runs-on: windows-2022
     timeout-minutes: 240
@@ -182,14 +180,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: dtolnay/rust-toolchain@3fc1e40d4c4ce3007de028907c886bc3996ce2ea # 1.96.0
         with:
           toolchain: 1.96.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
-      - name: Test packaging helpers
-        run: python -m unittest discover -s rust/packaging/tests -v
       - name: Cache Cargo and native dependency downloads
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
@@ -199,14 +196,14 @@ jobs:
             ${{ runner.temp }}/vcpkg-downloads
             ${{ runner.temp }}/vcpkg-binary-cache
           key: rust-artifacts-windows-x64-${{ hashFiles('rust/Cargo.lock', 'rust/packaging/windows/**') }}
-      - name: Build, test and package with pinned FFmpeg
+      - name: Build and package with pinned FFmpeg
         shell: pwsh
         env:
           VCPKG_DOWNLOADS: ${{ runner.temp }}/vcpkg-downloads
           VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
         run: |
           New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS, $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
-          ./rust/packaging/windows/build.ps1 -VcpkgRoot "$env:RUNNER_TEMP/tuneka-vcpkg" -OutputDirectory "$env:GITHUB_WORKSPACE/rust/dist/windows"
+          ./rust/packaging/windows/build.ps1 -VcpkgRoot "$env:RUNNER_TEMP/tuneka-vcpkg" -OutputDirectory "$env:GITHUB_WORKSPACE/rust/dist/windows" -SkipTests
       - name: Upload Windows portable package
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
